@@ -3,7 +3,7 @@ import { getAuth } from "firebase-admin/auth";
 
 let cachedApp: App | undefined;
 
-function getFirebaseApp(): App {
+export function getFirebaseApp(): App {
   if (cachedApp) return cachedApp;
 
   const existing = getApps()[0];

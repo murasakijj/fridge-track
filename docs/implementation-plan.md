@@ -82,7 +82,7 @@ recipe-buddy の以下をほぼそのまま移植する:
 | --- | --- |
 | `GET /api/auth-check` | 許可判定（recipe-buddy と同一） |
 | `POST /api/receipt-parse` | body `{ image: { mimeType, data(base64) }, foodItems: [{id,name,base_unit}] }` → AI でレシート解析し `{ purchased_at?, items: [{ raw_name, food_item_id \| null, quantity, unit }] }` を返す。**書き込みはしない**（確定はユーザー確認後にクライアントが行う、仕様 §8.3）。AI 出力は zod 検証し、存在しない food_item_id は null に落とす。画像は ≤ 4MB（クライアントで長辺 1600px の JPEG に縮小して送る） |
-| `GET /api/food-items` | 連携用。FoodItem 一覧 `{ id, name, base_unit }`（レシピアプリが材料を food_item_id に紐づけるため） |
+| `GET /api/food-items` | 連携用。FoodItem 一覧 `{ items: [{ id, name, base_unit }] }`（レシピアプリが材料を food_item_id に紐づけるため） |
 | `POST /api/recipe-consume` | レシピアプリ連携（仕様 §7, §15.4）。body `{ recipe_id, cooking_event_id, items: [{ food_item_id, quantity, unit }] }`。firebase-admin の Firestore トランザクション内で FIFO（`shared/fifo.ts`）を実行し `source_type: RECIPE`, `source_id: cooking_event_id` の CONSUME を作る。`recipeConsumptions/{cooking_event_id}` で冪等（再送は前回結果を返す）。応答 `{ results: [{ food_item_id, consumed, shortage, error? }] }` |
 
 連携 API の認証: `Authorization: Bearer <token>` が

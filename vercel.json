@@ -23,6 +23,15 @@
   "functions": {
     "api/auth-check.ts": {
       "maxDuration": 10
+    },
+    "api/receipt-parse.ts": {
+      "maxDuration": 60
+    },
+    "api/food-items.ts": {
+      "maxDuration": 10
+    },
+    "api/recipe-consume.ts": {
+      "maxDuration": 30
     }
   }
 }

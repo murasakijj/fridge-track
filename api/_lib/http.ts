@@ -25,7 +25,7 @@ export function sendJson(
   res.end(JSON.stringify(body));
 }
 
-/** リクエストボディの上限(1MiB)。超えたら読み込みを打ち切る。 */
+/** リクエストボディの既定の上限(1MiB)。超えたら読み込みを打ち切る。 */
 const MAX_BODY_BYTES = 1024 * 1024;
 
 /**
@@ -38,6 +38,7 @@ const MAX_BODY_BYTES = 1024 * 1024;
  */
 export async function readJsonBody(
   req: IncomingMessage & { body?: unknown },
+  maxBytes: number = MAX_BODY_BYTES,
 ): Promise<unknown> {
   if (req.body !== undefined && req.body !== null) {
     let text: string;
@@ -64,7 +65,7 @@ export async function readJsonBody(
         ? chunk
         : Buffer.from(String(chunk));
       total += buf.length;
-      if (total > MAX_BODY_BYTES) {
+      if (total > maxBytes) {
         req.destroy();
         return undefined;
       }
