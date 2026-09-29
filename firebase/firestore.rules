@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ログイン許可メール。Firebase Console に貼るときに自分のメールへ置き換える。
+    function isAllowedEmail() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email in ['you@example.com'];
+    }
+
+    function isOwner(userId) {
+      return isAllowedEmail() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+
+      // 食材マスター: create / update 可。base_unit は変更不可。delete 不可。
+      match /foodItems/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.name is string
+          && request.resource.data.base_unit is string;
+        allow update: if isOwner(userId)
+          && request.resource.data.base_unit == resource.data.base_unit;
+        allow delete: if false;
+      }
+
+      // Lot: create のみ。数量は持たない。
+      match /inventoryLots/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.food_item_id is string
+          && !('quantity' in request.resource.data);
+        allow update, delete: if false;
+      }
+
+      // イベント: 追記専用(create のみ。update / delete 禁止)。
+      match /inventoryEvents/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.event_type in ['PURCHASE', 'CONSUME', 'DISCARD', 'ADJUST']
+          && request.resource.data.source_type in ['MANUAL', 'RECIPE', 'RECEIPT', 'SYSTEM']
+          && request.resource.data.quantity_delta is number
+          && request.resource.data.quantity_delta != 0
+          && request.resource.data.inventory_lot_id is string
+          && request.resource.data.food_item_id is string;
+        allow update, delete: if false;
+      }
+
+      // レシート / 明細: create のみ。
+      match /receipts/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      match /receiptItems/{id} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // レシート表記 → 食材の対応: upsert 可。
+      match /receiptFoodMappings/{id} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      // 消費プロファイル: イベントから再計算できる派生データ。
+      match /consumptionProfiles/{foodItemId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      // レシピ連携の冪等性キー: サーバー(admin)のみ書込み。クライアントは読み取りのみ。
+      match /recipeConsumptions/{id} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    // 上記以外はすべて拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
