@@ -15,7 +15,6 @@ function req() {
     prompt: "PROMPT",
     images: [image],
     jsonSchema: schema,
-    signal: new AbortController().signal,
   };
 }
 
@@ -108,6 +107,7 @@ describe("OpenAiProvider", () => {
     const body = JSON.parse(init.body);
     expect(body.model).toBe("gpt-x");
     expect(body.response_format.json_schema.schema).toEqual(schema);
+    expect(body.response_format.json_schema.strict).toBe(true);
     expect(body.messages[0]).toEqual({ role: "system", content: "SYS" });
     expect(body.messages[1].content).toEqual([
       { type: "text", text: "PROMPT" },
@@ -121,7 +121,7 @@ describe("OpenAiProvider", () => {
   it("baseUrl(OpenAI 互換サーバー)を使える。末尾スラッシュは無視", async () => {
     const f = jsonFetch({ choices: [{ message: { content: '{"a":1}' } }] });
     const p = new OpenAiProvider(
-      { apiKey: "k", baseUrl: "http://localhost:11434/v1/" },
+      { apiKey: "k", model: "m", baseUrl: "http://localhost:11434/v1/" },
       f,
     );
     await p.generateJson(req());
@@ -132,20 +132,20 @@ describe("OpenAiProvider", () => {
 
   it("コードフェンス付き JSON も読める / 不正なら invalid_ai_output", async () => {
     const fenced = new OpenAiProvider(
-      { apiKey: "k" },
+      { apiKey: "k", model: "m" },
       jsonFetch({
         choices: [{ message: { content: '```json\n{"a":3}\n```' } }],
       }),
     );
     await expect(fenced.generateJson(req())).resolves.toEqual({ a: 3 });
     const bad = new OpenAiProvider(
-      { apiKey: "k" },
+      { apiKey: "k", model: "m" },
       jsonFetch({ choices: [{ message: { content: "sorry" } }] }),
     );
     await expect(bad.generateJson(req())).rejects.toBeInstanceOf(
       AiProviderError,
     );
-    const none = new OpenAiProvider({ apiKey: "k" }, jsonFetch({}));
+    const none = new OpenAiProvider({ apiKey: "k", model: "m" }, jsonFetch({}));
     await expect(none.generateJson(req())).rejects.toMatchObject({
       message: "invalid_ai_output",
     });
@@ -153,7 +153,7 @@ describe("OpenAiProvider", () => {
 
   it("HTTP 400 は upstream_error(リトライしない)。キーや本文をログに出さない", async () => {
     const f = jsonFetch({ error: "secret body" }, 400);
-    const p = new OpenAiProvider({ apiKey: "sk-secret" }, f);
+    const p = new OpenAiProvider({ apiKey: "sk-secret", model: "m" }, f);
     await expect(p.generateJson(req())).rejects.toMatchObject({
       statusCode: 502,
       message: "upstream_error",
@@ -167,10 +167,26 @@ describe("OpenAiProvider", () => {
     expect(logged).not.toContain("QUJD");
   });
 
+  it("200 だが本文が JSON でない場合は invalid_ai_output(upstream_error に潰さない)", async () => {
+    const f = vi.fn<FetchLike>(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError("Unexpected token <");
+      },
+    }));
+    const p = new OpenAiProvider({ apiKey: "k", model: "m" }, f);
+    await expect(p.generateJson(req())).rejects.toMatchObject({
+      statusCode: 502,
+      message: "invalid_ai_output",
+    });
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
   it("429 は rate_limited", async () => {
     vi.useFakeTimers();
     const f = jsonFetch({}, 429);
-    const p = new OpenAiProvider({ apiKey: "k" }, f);
+    const p = new OpenAiProvider({ apiKey: "k", model: "m" }, f);
     const assertion = expect(p.generateJson(req())).rejects.toMatchObject({
       message: "rate_limited",
     });
@@ -225,7 +241,11 @@ describe("getAiProvider", () => {
   });
   it("AI_PROVIDER で切り替える", () => {
     expect(
-      getAiProvider({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k" }).name,
+      getAiProvider({
+        AI_PROVIDER: "openai",
+        OPENAI_API_KEY: "k",
+        AI_MODEL: "gpt-x",
+      }).name,
     ).toBe("openai");
     expect(
       getAiProvider({ AI_PROVIDER: "Anthropic", ANTHROPIC_API_KEY: "k" }).name,
@@ -236,6 +256,10 @@ describe("getAiProvider", () => {
     expect(() => getAiProvider({ AI_PROVIDER: "openai" })).toThrow(
       "OPENAI_API_KEY",
     );
+    // openai は既定モデルを持たないので AI_MODEL 必須
+    expect(() =>
+      getAiProvider({ AI_PROVIDER: "openai", OPENAI_API_KEY: "k" }),
+    ).toThrow("AI_MODEL");
     expect(() => getAiProvider({ AI_PROVIDER: "foo" })).toThrow("unknown");
   });
 });

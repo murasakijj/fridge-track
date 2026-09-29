@@ -12,6 +12,9 @@ export interface ReceiptRowInput {
   quantity: number | null;
   /** 明細に残す単位(食材の base_unit)。 */
   unit: string;
+  /** AI が読み取った生の数量・単位(除外行も含め、そのまま残す)。 */
+  aiQuantity: number;
+  aiUnit: string;
   included: boolean;
 }
 
@@ -26,6 +29,8 @@ export interface ReceiptPlan {
     quantity: number;
     unit: string;
     confirmed: boolean;
+    ai_quantity: number;
+    ai_unit: string;
   }[];
   lots: { id: string; food_item_id: string }[];
   events: {
@@ -109,6 +114,8 @@ export function planReceipt(
       quantity,
       unit: row.unit,
       confirmed: row.included,
+      ai_quantity: Number.isFinite(row.aiQuantity) ? row.aiQuantity : 0,
+      ai_unit: row.aiUnit,
     });
 
     if (row.included && foodId) {
@@ -144,4 +151,13 @@ export function planReceipt(
     plan.affectedFoodIds.length; // consumptionProfiles
   if (plan.writeCount > MAX_BATCH_WRITES) throw new Error("too_many_rows");
   return plan;
+}
+
+/** マッピングの upsert で書く created_at。既存があればそれを保つ(リセットしない)。 */
+export function mappingCreatedAt(
+  existing: readonly { id: string; created_at: Date }[],
+  docId: string,
+  now: Date,
+): Date {
+  return existing.find((m) => m.id === docId)?.created_at ?? now;
 }

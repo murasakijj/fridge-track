@@ -51,6 +51,8 @@ export function toAiProviderError(
   logTag: string,
   model?: string,
 ): AiProviderError {
+  // 既に正規化済みのエラー(invalid_ai_output 等)はそのまま通す。
+  if (err instanceof AiProviderError) return err;
   const e = err as { name?: unknown; status?: unknown; message?: unknown };
   console.error(`[${logTag}] ai error`, {
     model,

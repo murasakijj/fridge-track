@@ -4,8 +4,8 @@ import type { AiReceiptItem } from "../../shared/receipt.js";
 
 /** 送信前に画像の長辺をこの値に縮小する(JPEG)。 */
 export const MAX_IMAGE_SIDE = 1600;
-/** サーバー側の base64 上限(4MB)に合わせる。 */
-const MAX_BASE64_CHARS = 4 * 1024 * 1024;
+/** base64 の上限。サーバー上限(4MB)と Vercel のボディ上限(約 4.5MB)に余裕を持たせる。 */
+const MAX_BASE64_CHARS = 3_500_000;
 
 export interface ResizedImage {
   mimeType: "image/jpeg";
@@ -95,6 +95,10 @@ export async function parseReceiptImage(
 /** エラーコードを利用者向けの日本語メッセージにする。 */
 export function receiptErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
+    // Vercel のボディ上限超過は JSON でない 413 が返る。
+    if (err.status === 413 || err.message === "payload_too_large") {
+      return "画像が大きすぎます。別の画像でお試しください。";
+    }
     switch (err.message) {
       case "rate_limited":
         return "AI の利用上限に達しました。しばらく待ってからやり直してください。";

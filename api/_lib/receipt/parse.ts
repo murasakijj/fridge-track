@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { AiProviderError, type AiProvider } from "../ai/types.js";
-import { TIMEOUT_MS } from "../ai/retry.js";
 import { buildReceiptPrompt, RECEIPT_SYSTEM_PROMPT } from "./prompt.js";
 import {
   RECEIPT_JSON_SCHEMA,
@@ -22,7 +21,6 @@ export async function parseReceipt(
     prompt: buildReceiptPrompt(input.foodItems),
     images: [{ mimeType: input.image.mimeType, data: input.image.data }],
     jsonSchema: RECEIPT_JSON_SCHEMA,
-    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   try {
     return sanitizeReceipt(raw, new Set(input.foodItems.map((f) => f.id)));

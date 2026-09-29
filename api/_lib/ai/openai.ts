@@ -5,7 +5,6 @@ import {
   type AiProvider,
 } from "./types.js";
 
-export const OPENAI_DEFAULT_MODEL = "gpt-4o-mini";
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 /**
@@ -21,11 +20,11 @@ export class OpenAiProvider implements AiProvider {
   private fetchImpl: FetchLike;
 
   constructor(
-    opts: { apiKey: string; model?: string; baseUrl?: string },
+    opts: { apiKey: string; model: string; baseUrl?: string },
     fetchImpl?: FetchLike,
   ) {
     this.apiKey = opts.apiKey;
-    this.model = opts.model || OPENAI_DEFAULT_MODEL;
+    this.model = opts.model;
     this.baseUrl = (opts.baseUrl || OPENAI_DEFAULT_BASE_URL).replace(
       /\/+$/,
       "",
@@ -54,7 +53,7 @@ export class OpenAiProvider implements AiProvider {
         messages,
         response_format: {
           type: "json_schema",
-          json_schema: { name: "result", schema: req.jsonSchema },
+          json_schema: { name: "result", strict: true, schema: req.jsonSchema },
         },
       },
       { logTag: "ai:openai", model: this.model },

@@ -7,7 +7,7 @@
 
 | 方式 | 使えるエンドポイント | 内容 |
 | --- | --- | --- |
-| Firebase ID トークン | すべて | `requireAuth`: トークン検証 + `email_verified` + `ALLOWED_EMAILS` 照合 |
+| Firebase ID トークン | すべて | `requireAuth`: トークン検証 + `email_verified` + サインイン方法が `google.com` + `ALLOWED_EMAILS` 照合(いずれか欠ければ 403) |
 | 連携トークン | `/api/food-items`, `/api/recipe-consume` のみ | `RECIPE_INTEGRATION_TOKEN`(32 文字以上)と定数時間比較で一致すれば、`INVENTORY_OWNER_UID` の uid として動く。環境変数が未設定/短すぎる場合、この経路は無効 |
 
 共通エラー: `401 missing_token | invalid_token`、`403 forbidden`、`405 method_not_allowed`、`400 invalid_body`(zod 検証失敗)、`500 internal_error`(設定ミス・想定外)。
@@ -29,8 +29,8 @@ ID トークンの許可判定。`200 { "ok": true }`。クライアントは 40
 }
 ```
 
-- `mimeType`: `image/jpeg | image/png | image/webp`。`data` は base64 で 4MB(文字数)以下。クライアントは長辺 1600px の JPEG に縮小して送る
-- `foodItems`: 最大 500 件。AI が `food_item_id` を提案するための候補リスト
+- `mimeType`: `image/jpeg | image/png | image/webp`。`data` は base64 で 4MB(文字数)以下(クライアントは長辺 1600px の JPEG に縮小し、約 3.5M 文字を超えないようにする)。Vercel のボディ上限(約 4.5MB)を超えると JSON でない `413` が返り、UI は「画像が大きすぎます」と表示する
+- `foodItems`: AI が `food_item_id` を提案するための候補リスト。500 件を超える分はサーバーが切り詰める(拒否しない)。クライアントも名前順の先頭 500 件だけ送る
 
 レスポンス `200`:
 
@@ -79,7 +79,7 @@ ID トークンの許可判定。`200 { "ok": true }`。クライアントは 40
 
 処理(1 つの Firestore トランザクション):
 
-1. `recipeConsumptions/{cooking_event_id}` があれば**何も書かず前回の結果を返す**(`replayed: true`)
+1. `recipeConsumptions/{cooking_event_id}` があれば**何も書かず前回の結果を返す**(`replayed: true`)。この記録は **CONSUME を 1 件以上書いたときだけ**残る(下記)
 2. 各明細を食材の `base_unit` に単位変換(`shared/units.ts`。同一単位、`kg→g`、`L→ml`、`base_unit` が `%` のときは 少々=1 / 適量・少量=3 / ひとつまみ=1 / N袋・N本・N個=N×100 / 1/2袋=50 など)
 3. FIFO(古い Lot から)で `CONSUME`(`source_type: RECIPE`, `source_id: cooking_event_id`, `note: recipe:<recipe_id>`)を Lot ごとに作成
 4. `consumptionProfiles` を再計算し、`recipeConsumptions` に結果を保存
@@ -116,6 +116,8 @@ curl -sS -X POST https://<your-app>.vercel.app/api/recipe-consume \
 ```
 
 同じコマンドを再実行しても在庫は二重に減らず、`"replayed": true` で最初の結果が返る。
+
+**冪等性の記録は「実際に在庫を減らしたときだけ」残る。** 全明細が `not_found` / `unit_mismatch` になった、または在庫ゼロで 1 件も記録されなかった場合は何も保存しない(HTTP 200・`replayed: false` で結果は返る)。呼び出し側は紐づけや単位を直したうえで、**同じ `cooking_event_id` のまま再送**できる。1 件でも記録されたら、以降の再送は前回結果の再生になる(残りの明細だけ後から足すことはできないので、その場合は新しい `cooking_event_id` を使う)。
 
 ### recipe-buddy からの呼び出し方
 

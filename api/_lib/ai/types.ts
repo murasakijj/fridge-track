@@ -20,7 +20,6 @@ export interface AiJsonRequest {
   images?: AiImage[];
   /** 出力の JSON Schema。 */
   jsonSchema: object;
-  signal: AbortSignal;
 }
 
 /**

@@ -34,6 +34,7 @@ service cloud.firestore {
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.updated_at is timestamp
+          && request.resource.data.created_at == resource.data.created_at
           && request.resource.data.base_unit == resource.data.base_unit;
         allow delete: if false;
       }
@@ -83,6 +84,8 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
           && request.resource.data.keys().hasOnly(['image_reference', 'purchased_at', 'created_at'])
+          && request.resource.data.keys().hasAll(['image_reference', 'purchased_at', 'created_at'])
+          && (request.resource.data.image_reference == null || request.resource.data.image_reference is string)
           && request.resource.data.purchased_at is timestamp
           && request.resource.data.created_at is timestamp;
         allow update, delete: if false;
@@ -91,12 +94,23 @@ service cloud.firestore {
       match /receiptItems/{id} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['receipt_id', 'raw_name', 'food_item_id', 'quantity', 'unit', 'confirmed'])
+          && request.resource.data.keys().hasOnly([
+            'receipt_id', 'raw_name', 'food_item_id', 'quantity', 'unit',
+            'confirmed', 'ai_quantity', 'ai_unit'
+          ])
+          && request.resource.data.keys().hasAll([
+            'receipt_id', 'raw_name', 'food_item_id', 'quantity', 'unit',
+            'confirmed', 'ai_quantity', 'ai_unit'
+          ])
           && request.resource.data.receipt_id is string
           && request.resource.data.raw_name is string
+          && (request.resource.data.food_item_id == null || request.resource.data.food_item_id is string)
           && request.resource.data.quantity is number
+          && request.resource.data.quantity >= 0
           && request.resource.data.unit is string
-          && request.resource.data.confirmed is bool;
+          && request.resource.data.confirmed is bool
+          && request.resource.data.ai_quantity is number
+          && request.resource.data.ai_unit is string;
         allow update, delete: if false;
       }
 

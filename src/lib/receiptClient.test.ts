@@ -27,6 +27,12 @@ describe("receiptErrorMessage", () => {
     );
   });
 
+  it("413 は画像が大きすぎる旨のメッセージ", () => {
+    expect(receiptErrorMessage(new ApiError(413, "server_error"))).toContain(
+      "画像が大きすぎます",
+    );
+  });
+
   it("タイムアウト", () => {
     const e = new Error("t");
     e.name = "TimeoutError";

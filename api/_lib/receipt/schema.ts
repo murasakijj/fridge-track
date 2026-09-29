@@ -23,7 +23,8 @@ export const receiptParseRequestSchema = z.object({
         base_unit: z.string().min(1).max(50),
       }),
     )
-    .max(MAX_FOOD_ITEMS),
+    // 多すぎる場合は拒否せず先頭 MAX_FOOD_ITEMS 件に切り詰める(ボディ全体は別途上限あり)。
+    .transform((items) => items.slice(0, MAX_FOOD_ITEMS)),
 });
 export type ReceiptParseRequest = z.infer<typeof receiptParseRequestSchema>;
 
@@ -42,12 +43,14 @@ export interface ParsedReceipt {
 /** AI に要求する出力の JSON Schema(プロバイダ非依存)。 */
 export const RECEIPT_JSON_SCHEMA = {
   type: "object",
+  additionalProperties: false,
   properties: {
     purchased_at: { type: ["string", "null"] },
     items: {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           raw_name: { type: "string" },
           food_item_id: { type: ["string", "null"] },

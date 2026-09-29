@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   MAX_IMAGE_BASE64_CHARS,
+  RECEIPT_JSON_SCHEMA,
   receiptParseRequestSchema,
   sanitizeReceipt,
 } from "./schema.js";
@@ -45,21 +46,49 @@ describe("receiptParseRequestSchema", () => {
     ).toBe(true);
   });
 
-  it("foodItems は 500 件まで", () => {
+  it("foodItems は 500 件を超えても拒否せず先頭 500 件に切り詰める", () => {
     const many = (n: number) =>
       Array.from({ length: n }, (_, i) => ({
         id: `i${i}`,
         name: "x",
         base_unit: "個",
       }));
-    expect(
-      receiptParseRequestSchema.safeParse({ ...validReq, foodItems: many(500) })
-        .success,
-    ).toBe(true);
-    expect(
-      receiptParseRequestSchema.safeParse({ ...validReq, foodItems: many(501) })
-        .success,
-    ).toBe(false);
+    const r500 = receiptParseRequestSchema.parse({
+      ...validReq,
+      foodItems: many(500),
+    });
+    expect(r500.foodItems).toHaveLength(500);
+    const r501 = receiptParseRequestSchema.parse({
+      ...validReq,
+      foodItems: many(501),
+    });
+    expect(r501.foodItems).toHaveLength(500);
+    expect(r501.foodItems[499]!.id).toBe("i499");
+  });
+});
+
+describe("RECEIPT_JSON_SCHEMA", () => {
+  it("すべての object に additionalProperties:false(OpenAI strict 用)", () => {
+    const objects: {
+      additionalProperties?: unknown;
+      required?: unknown[];
+      properties?: object;
+    }[] = [];
+    const walk = (n: unknown) => {
+      if (!n || typeof n !== "object") return;
+      const o = n as Record<string, unknown>;
+      if (o.type === "object") objects.push(o as never);
+      Object.values(o).forEach(walk);
+    };
+    walk(RECEIPT_JSON_SCHEMA);
+    expect(objects.length).toBe(2);
+    for (const o of objects) {
+      expect(o.additionalProperties).toBe(false);
+      // strict では全プロパティが required
+      expect((o.required ?? []).sort()).toEqual(
+        Object.keys(o.properties ?? {}).sort(),
+      );
+    }
   });
 });
 

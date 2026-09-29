@@ -1,7 +1,11 @@
 import { Timestamp, collection, doc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { commitBatch } from "./inventoryWrites";
-import { planReceipt, type ReceiptRowInput } from "./receiptPlan";
+import {
+  mappingCreatedAt,
+  planReceipt,
+  type ReceiptRowInput,
+} from "./receiptPlan";
 import { computeConsumptionProfile } from "../../shared/consumption.js";
 import type { InventoryEvent, ReceiptFoodMapping } from "../../shared/types.js";
 
@@ -52,6 +56,8 @@ export async function confirmReceipt(
       quantity: it.quantity,
       unit: it.unit,
       confirmed: it.confirmed,
+      ai_quantity: it.ai_quantity,
+      ai_unit: it.ai_unit,
     });
   }
   for (const l of plan.lots) {
@@ -87,14 +93,13 @@ export async function confirmReceipt(
       created_at: now,
     });
   }
-  const existingByRaw = new Map(existingMappings.map((m) => [m.id, m]));
   for (const m of plan.mappings) {
     batch.set(doc(col("receiptFoodMappings"), m.docId), {
       raw_name: m.raw_name,
       food_item_id: m.food_item_id,
-      created_at: existingByRaw.has(m.docId)
-        ? Timestamp.fromDate(existingByRaw.get(m.docId)!.created_at)
-        : nowTs,
+      created_at: Timestamp.fromDate(
+        mappingCreatedAt(existingMappings, m.docId, now),
+      ),
       updated_at: nowTs,
     });
   }

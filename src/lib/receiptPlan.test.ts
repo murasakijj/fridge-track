@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { planReceipt, type ReceiptRowInput } from "./receiptPlan";
+import {
+  mappingCreatedAt,
+  planReceipt,
+  type ReceiptRowInput,
+} from "./receiptPlan";
 import { mappingDocId, normalizeRawName } from "../../shared/receipt.js";
 
 const now = new Date(2026, 8, 20, 15, 0, 0);
@@ -16,6 +20,8 @@ const row = (o: Partial<ReceiptRowInput> = {}): ReceiptRowInput => ({
   newFood: null,
   quantity: 300,
   unit: "g",
+  aiQuantity: 300,
+  aiUnit: "g",
   included: true,
   ...o,
 });
@@ -65,6 +71,10 @@ describe("planReceipt", () => {
     expect(p.lots).toHaveLength(1);
     expect(p.receiptItems.map((i) => i.confirmed)).toEqual([true, false]);
     expect(p.receiptItems[1]!.quantity).toBe(0);
+    expect(p.receiptItems[1]!).toMatchObject({
+      ai_quantity: 300,
+      ai_unit: "g",
+    });
     expect(p.mappings).toHaveLength(1);
   });
 
@@ -134,5 +144,14 @@ describe("planReceipt", () => {
     expect(
       planReceipt([row()], new Date(2026, 8, 10), now, idGen()).purchasedAt,
     ).toEqual(new Date(2026, 8, 10, 12));
+  });
+});
+
+describe("mappingCreatedAt", () => {
+  it("既存マッピングの created_at を保ち、無ければ now", () => {
+    const old = new Date(2026, 0, 1);
+    const existing = [{ id: "m_a", created_at: old }];
+    expect(mappingCreatedAt(existing, "m_a", now)).toBe(old);
+    expect(mappingCreatedAt(existing, "m_b", now)).toBe(now);
   });
 });

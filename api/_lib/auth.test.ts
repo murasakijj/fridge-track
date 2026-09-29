@@ -58,6 +58,7 @@ describe("requireAuth", () => {
       uid: "u1",
       email: "stranger@example.com",
       email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
     });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,
@@ -66,7 +67,11 @@ describe("requireAuth", () => {
   });
 
   it("メールが無いトークンなら 403", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "u1", email_verified: true });
+    verifyIdToken.mockResolvedValue({
+      uid: "u1",
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,
       message: "forbidden",
@@ -78,6 +83,7 @@ describe("requireAuth", () => {
       uid: "u1",
       email: "OK@Example.com",
       email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
     });
     await expect(requireAuth("Bearer sometoken")).resolves.toEqual({
       uid: "u1",
@@ -90,6 +96,7 @@ describe("requireAuth", () => {
       uid: "u2",
       email: "two@example.com",
       email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
     });
     await expect(
       requireAuth(["Bearer sometoken", "Bearer other"]),
@@ -102,6 +109,7 @@ describe("requireAuth", () => {
       uid: "u1",
       email: "ok@example.com",
       email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
     });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,
@@ -124,5 +132,20 @@ describe("requireAuth", () => {
       statusCode: 403,
       message: "forbidden",
     });
+  });
+
+  it("Google 以外のサインイン方法(password 等)や provider 情報なしは 403", async () => {
+    for (const firebase of [{ sign_in_provider: "password" }, undefined]) {
+      verifyIdToken.mockResolvedValue({
+        uid: "u1",
+        email: "ok@example.com",
+        email_verified: true,
+        firebase,
+      });
+      await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
+        statusCode: 403,
+        message: "forbidden",
+      });
+    }
   });
 });

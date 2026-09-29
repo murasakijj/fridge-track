@@ -11,9 +11,9 @@ export type AiProviderName = (typeof AI_PROVIDER_NAMES)[number];
 
 type Env = Record<string, string | undefined>;
 
-function need(env: Env, key: string): string {
+function need(env: Env, key: string, message?: string): string {
   const v = env[key]?.trim();
-  if (!v) throw new Error(`${key} is not set`);
+  if (!v) throw new Error(message ?? `${key} is not set`);
   return v;
 }
 
@@ -30,9 +30,14 @@ export function getAiProvider(env: Env = process.env): AiProvider {
     case "gemini":
       return new GeminiProvider({ apiKey: need(env, "GEMINI_API_KEY"), model });
     case "openai":
+      // 既定モデルは置かない(画像入力・構造化出力に対応したモデルを明示させる)。
       return new OpenAiProvider({
         apiKey: need(env, "OPENAI_API_KEY"),
-        model,
+        model: need(
+          env,
+          "AI_MODEL",
+          "AI_MODEL is required when AI_PROVIDER=openai",
+        ),
         baseUrl,
       });
     case "anthropic":

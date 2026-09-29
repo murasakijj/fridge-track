@@ -81,6 +81,11 @@ export async function requireAuth(
     throw new AuthError(403, "forbidden");
   }
 
+  // Google 以外のサインイン方法(メール/パスワード等)は許可しない。
+  if (decoded.firebase?.sign_in_provider !== "google.com") {
+    throw new AuthError(403, "forbidden");
+  }
+
   const email = decoded.email?.toLowerCase();
   if (!email || !parseAllowedEmails().includes(email)) {
     throw new AuthError(403, "forbidden");

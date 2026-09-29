@@ -220,11 +220,16 @@ export async function executeRecipeConsume(
       calculated_at: now,
     });
   }
-  tx.setResult(input.cooking_event_id, {
-    recipe_id: input.recipe_id,
-    created_at: now,
-    event_ids: eventIds,
-    results,
-  });
+  // 冪等性レコードは、CONSUME を 1 件以上書いたときだけ残す。全明細がエラー
+  // (not_found / unit_mismatch)や在庫ゼロで何も書かなかった場合は残さず、
+  // 呼び出し側が同じ cooking_event_id のまま修正して再送できるようにする。
+  if (eventIds.length > 0) {
+    tx.setResult(input.cooking_event_id, {
+      recipe_id: input.recipe_id,
+      created_at: now,
+      event_ids: eventIds,
+      results,
+    });
+  }
   return { results, replayed: false };
 }

@@ -29,10 +29,10 @@
 | `AI_PROVIDER` | 必要なキー | 備考 |
 | --- | --- | --- |
 | `gemini`(既定) | `GEMINI_API_KEY` | |
-| `openai` | `OPENAI_API_KEY` | 既定モデル `gpt-4o-mini`。`AI_BASE_URL` で OpenAI 互換サーバーも可 |
-| `anthropic` | `ANTHROPIC_API_KEY` | 既定モデル `claude-sonnet-4-5` |
+| `openai` | `OPENAI_API_KEY` と **`AI_MODEL`(必須)** | 既定モデルは置いていない。画像入力と構造化出力(json_schema)に対応したモデルを指定する。未設定だと API は 500 `internal_error`(サーバーログに `AI_MODEL is required when AI_PROVIDER=openai`)。`AI_BASE_URL` で OpenAI 互換サーバーも可 |
+| `anthropic` | `ANTHROPIC_API_KEY` | 既定モデル `claude-sonnet-5-5` |
 
-`AI_MODEL` でモデルを上書きできる。いずれも画像入力に対応したモデルを指定すること。新しいプロバイダは `api/_lib/ai/` に `AiProvider` 実装を 1 ファイル足し、`index.ts` に登録するだけ。
+`AI_MODEL` でモデルを上書きできる(openai のみ必須)。いずれも画像入力に対応したモデルを指定すること。新しいプロバイダは `api/_lib/ai/` に `AiProvider` 実装を 1 ファイル足し、`index.ts` に登録するだけ。
 
 ## 3. Vercel
 
@@ -65,7 +65,7 @@
 3. 両方を本アプリの Vercel 環境変数に設定し、同じ `RECIPE_INTEGRATION_TOKEN` を recipe-buddy 側のサーバー環境変数にも設定
 4. 呼び出し方は [api.md](./api.md) の recipe-consume を参照
 
-どちらかが未設定だと連携トークン認証は無効(ID トークン認証のみ)。トークンを漏らした場合は値を再生成して両方の環境を更新する。
+`RECIPE_INTEGRATION_TOKEN` が未設定(または 32 文字未満)だと連携トークン認証は無効で、ID トークン認証のみになる。トークンが設定されていて `INVENTORY_OWNER_UID` が未設定の場合は、トークン付きのリクエストが **500 `internal_error`** になる(設定ミスを見逃さないよう意図的にエラーにしている。サーバーログに `INVENTORY_OWNER_UID is not set`)。トークンを漏らした場合は値を再生成して両方の環境を更新する。
 
 ## 5. 動作確認チェックリスト
 

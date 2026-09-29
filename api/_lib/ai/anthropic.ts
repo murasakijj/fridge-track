@@ -5,7 +5,7 @@ import {
   type AiProvider,
 } from "./types.js";
 
-export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-5";
+export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-5-5";
 const ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com/v1";
 
 /**

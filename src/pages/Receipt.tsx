@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import InventoryError from "../components/InventoryError";
 import { useInventory } from "../contexts/useInventory";
 import {
   parseReceiptImage,
@@ -21,6 +22,7 @@ import { isFuturePurchaseDate } from "../lib/purchaseDate";
 type Stage = "select" | "parsing" | "review" | "saving";
 
 const NEW_FOOD = "__new__";
+const MAX_FOODS_SENT = 500;
 
 /** 画面上の 1 行(共有の ReviewRow + 新規食材の入力)。 */
 interface Row extends ReviewRow {
@@ -36,7 +38,14 @@ const SAVE_ERRORS: Record<string, string> = {
 };
 
 export default function Receipt() {
-  const { uid, foods, events, mappings } = useInventory();
+  const {
+    uid,
+    foods,
+    events,
+    mappings,
+    loading,
+    error: loadError,
+  } = useInventory();
   const navigate = useNavigate();
   const [stage, setStage] = useState<Stage>("select");
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +67,17 @@ export default function Receipt() {
       : foodMap.get(r.food_item_id)?.base_unit;
 
   const onFile = async (file: File | undefined) => {
-    if (!file) return;
+    if (!file || loading || loadError) return;
     setError(null);
     setStage("parsing");
     try {
       const image = await resizeImage(file);
+      // サーバーの上限(500 件)を超えないよう、名前順の先頭 500 件だけ送る。
       const result = await parseReceiptImage(
         image,
-        foods.map((f) => ({ id: f.id, name: f.name, base_unit: f.base_unit })),
+        sortedFoods
+          .slice(0, MAX_FOODS_SENT)
+          .map((f) => ({ id: f.id, name: f.name, base_unit: f.base_unit })),
       );
       const built = buildReviewRows(result.items, foods, mappings);
       setRows(
@@ -117,6 +129,8 @@ export default function Receipt() {
   };
   const purchaseDate = parseDateInput(date);
   const canConfirm =
+    !loading &&
+    !loadError &&
     included.length > 0 &&
     included.every(rowComplete) &&
     purchaseDate !== null &&
@@ -136,6 +150,8 @@ export default function Receipt() {
           : null,
         quantity: parseQtyInput(r.quantity),
         unit: baseUnitOf(r) ?? r.ai_unit,
+        aiQuantity: r.ai_quantity,
+        aiUnit: r.ai_unit,
         included: r.included,
       };
     });
@@ -184,7 +200,7 @@ export default function Receipt() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={stage === "parsing"}
+              disabled={stage === "parsing" || loading || loadError}
               onClick={() => cameraRef.current?.click()}
             >
               撮影する
@@ -192,12 +208,14 @@ export default function Receipt() {
             <button
               type="button"
               className="btn"
-              disabled={stage === "parsing"}
+              disabled={stage === "parsing" || loading || loadError}
               onClick={() => fileRef.current?.click()}
             >
               画像を選ぶ
             </button>
           </div>
+          {loadError && <InventoryError />}
+          {loading && !loadError && <p role="status">読み込み中...</p>}
           {stage === "parsing" && (
             <p role="status">
               レシートを読み取っています(数十秒かかることがあります)...

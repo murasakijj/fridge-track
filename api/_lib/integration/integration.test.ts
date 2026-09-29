@@ -241,6 +241,56 @@ describe("executeRecipeConsume", () => {
       shortage: 100,
     });
     expect(tx.created).toHaveLength(0);
+    expect(tx.results.has("cook1")).toBe(false); // 何も書かなければ冪等レコードも残さない
+  });
+
+  it("全明細がエラーなら何も書かず、修正して同じ cooking_event_id で再送できる", async () => {
+    const tx = seeded();
+    const failed = await executeRecipeConsume(
+      tx,
+      input([
+        { food_item_id: "ghost", quantity: 1, unit: "個" },
+        { food_item_id: "pork", quantity: 1, unit: "個" },
+      ]),
+      NOW,
+    );
+    expect(failed.replayed).toBe(false);
+    expect(failed.results.map((r) => r.error)).toEqual([
+      "not_found",
+      "unit_mismatch",
+    ]);
+    expect(tx.created).toHaveLength(0);
+    expect(tx.profiles.size).toBe(0);
+    expect(tx.results.size).toBe(0);
+
+    // 単位を直して再送 → 今度は処理され、記録が残る
+    const retried = await executeRecipeConsume(
+      tx,
+      input([{ food_item_id: "pork", quantity: 100, unit: "g" }]),
+      day(6),
+    );
+    expect(retried.replayed).toBe(false);
+    expect(retried.results[0]).toMatchObject({ consumed: 100, shortage: 0 });
+    expect(tx.results.has("cook1")).toBe(true);
+  });
+
+  it("1 件でも CONSUME を書いたら(他がエラーでも)冪等レコードを残す", async () => {
+    const tx = seeded();
+    await executeRecipeConsume(
+      tx,
+      input([
+        { food_item_id: "ghost", quantity: 1, unit: "個" },
+        { food_item_id: "milk", quantity: 10, unit: "%" },
+      ]),
+      NOW,
+    );
+    expect(tx.results.has("cook1")).toBe(true);
+    const again = await executeRecipeConsume(
+      tx,
+      input([{ food_item_id: "ghost", quantity: 1, unit: "個" }]),
+      day(6),
+    );
+    expect(again.replayed).toBe(true);
   });
 
   it("同じ食材が複数行あっても先行分を踏まえて FIFO する", async () => {
