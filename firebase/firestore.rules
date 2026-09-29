@@ -6,6 +6,8 @@ service cloud.firestore {
     function isAllowedEmail() {
       return request.auth != null
         && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
         && request.auth.token.email in ['you@example.com'];
     }
 
@@ -19,9 +21,19 @@ service cloud.firestore {
       match /foodItems/{id} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['name', 'base_unit', 'created_at', 'updated_at'])
+          && request.resource.data.keys().hasAll(['name', 'base_unit', 'created_at', 'updated_at'])
           && request.resource.data.name is string
-          && request.resource.data.base_unit is string;
+          && request.resource.data.name.size() > 0
+          && request.resource.data.base_unit is string
+          && request.resource.data.base_unit.size() > 0
+          && request.resource.data.created_at is timestamp
+          && request.resource.data.updated_at is timestamp;
         allow update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['name', 'base_unit', 'created_at', 'updated_at'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.updated_at is timestamp
           && request.resource.data.base_unit == resource.data.base_unit;
         allow delete: if false;
       }
@@ -30,34 +42,61 @@ service cloud.firestore {
       match /inventoryLots/{id} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['food_item_id', 'purchased_at', 'created_at', 'updated_at'])
+          && request.resource.data.keys().hasAll(['food_item_id', 'purchased_at', 'created_at', 'updated_at'])
           && request.resource.data.food_item_id is string
-          && !('quantity' in request.resource.data);
+          && request.resource.data.purchased_at is timestamp
+          && request.resource.data.created_at is timestamp
+          && request.resource.data.updated_at is timestamp;
         allow update, delete: if false;
       }
 
-      // イベント: 追記専用(create のみ。update / delete 禁止)。
+      // イベント: 追記専用(create のみ。update / delete 禁止)。符号は種別ごとに固定。
       match /inventoryEvents/{id} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'inventory_lot_id', 'food_item_id', 'event_type', 'quantity_delta',
+            'source_type', 'source_id', 'occurred_at', 'created_at', 'note'
+          ])
+          && request.resource.data.keys().hasAll([
+            'inventory_lot_id', 'food_item_id', 'event_type', 'quantity_delta',
+            'source_type', 'source_id', 'occurred_at', 'created_at'
+          ])
+          && request.resource.data.inventory_lot_id is string
+          && request.resource.data.food_item_id is string
           && request.resource.data.event_type in ['PURCHASE', 'CONSUME', 'DISCARD', 'ADJUST']
           && request.resource.data.source_type in ['MANUAL', 'RECIPE', 'RECEIPT', 'SYSTEM']
+          && (request.resource.data.source_id == null || request.resource.data.source_id is string)
           && request.resource.data.quantity_delta is number
-          && request.resource.data.quantity_delta != 0
-          && request.resource.data.inventory_lot_id is string
-          && request.resource.data.food_item_id is string;
+          && (request.resource.data.event_type != 'PURCHASE' || request.resource.data.quantity_delta > 0)
+          && (!(request.resource.data.event_type in ['CONSUME', 'DISCARD']) || request.resource.data.quantity_delta < 0)
+          && (request.resource.data.event_type != 'ADJUST' || request.resource.data.quantity_delta != 0)
+          && request.resource.data.occurred_at is timestamp
+          && request.resource.data.created_at is timestamp
+          && (!('note' in request.resource.data) || request.resource.data.note is string);
         allow update, delete: if false;
       }
 
       // レシート / 明細: create のみ。
       match /receipts/{id} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['image_reference', 'purchased_at', 'created_at'])
+          && request.resource.data.purchased_at is timestamp
+          && request.resource.data.created_at is timestamp;
         allow update, delete: if false;
       }
 
       match /receiptItems/{id} {
         allow read: if isOwner(userId);
-        allow create: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['receipt_id', 'raw_name', 'food_item_id', 'quantity', 'unit', 'confirmed'])
+          && request.resource.data.receipt_id is string
+          && request.resource.data.raw_name is string
+          && request.resource.data.quantity is number
+          && request.resource.data.unit is string
+          && request.resource.data.confirmed is bool;
         allow update, delete: if false;
       }
 

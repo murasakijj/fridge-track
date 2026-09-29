@@ -53,6 +53,21 @@ export function compareLots(a: LotLike, b: LotLike): number {
   );
 }
 
+/**
+ * 食材の現在合計(存在する Lot の残量の合算)。表示(buildFoodView)と
+ * planAdjust の両方がこの関数を使い、同じ集合で計算する。
+ * lots に無い Lot のイベントは無視する。
+ */
+export function stockTotal(
+  lots: readonly LotLike[],
+  events: readonly EventLike[],
+): number {
+  const balances = lotBalances(events);
+  let sum = 0;
+  for (const lot of lots) sum += balances.get(lot.id) ?? 0;
+  return roundQty(sum);
+}
+
 export interface FifoPlan {
   /** 各 Lot に作る負のイベント差分(古い Lot から)。 */
   allocations: Allocation[];
@@ -97,7 +112,8 @@ export interface AdjustPlan {
 
 /**
  * 在庫補正計画(仕様 §6.1 ADJUST)。「今実際にいくつあるか」を受け取り差分を返す。
- * - diff < 0: FIFO で各 Lot に負の ADJUST
+ * - 負の Lot 残量は先に 0 へ戻す(正の ADJUST)。以降は残量のある Lot だけで計算する
+ * - 減らす場合: FIFO で各 Lot に負の ADJUST(Lot が負にならない)
  * - diff > 0: 残量のある最新 Lot に正の ADJUST。無ければ新規 Lot(PURCHASE は作らない)
  */
 export function planAdjust(
@@ -106,31 +122,49 @@ export function planAdjust(
   actualTotal: number,
 ): AdjustPlan {
   const actual = Math.max(0, roundQty(actualTotal));
-  let current = 0;
-  for (const v of lotBalances(events).values()) current += v;
-  current = roundQty(current);
+  const current = stockTotal(lots, events);
   const diff = roundQty(actual - current);
 
-  if (isZeroQty(diff)) return { diff: 0, allocations: [], newLotDelta: null };
+  const balances = lotBalances(events);
+  const sorted = [...lots].sort(compareLots);
+  const allocations: Allocation[] = [];
 
-  if (diff < 0) {
-    const { allocations } = planFifo(lots, events, -diff);
+  // 負の Lot 残量を先に 0 へ戻す(負が残らないようにする)。
+  const positives: { lot: LotLike; balance: number }[] = [];
+  for (const lot of sorted) {
+    const b = balances.get(lot.id) ?? 0;
+    if (b < 0 && !isZeroQty(b)) {
+      allocations.push({ lotId: lot.id, delta: roundQty(-b) });
+    } else if (b > 0 && !isZeroQty(b)) {
+      positives.push({ lot, balance: b });
+    }
+  }
+  const positiveSum = roundQty(positives.reduce((s, p) => s + p.balance, 0));
+  const target = roundQty(actual - positiveSum);
+
+  if (isZeroQty(target)) {
     return { diff, allocations, newLotDelta: null };
   }
 
-  const balances = lotBalances(events);
-  const target = [...lots]
-    .sort(compareLots)
-    .reverse()
-    .find((lot) => (balances.get(lot.id) ?? 0) > 0);
-  if (target) {
-    return {
-      diff,
-      allocations: [{ lotId: target.id, delta: diff }],
-      newLotDelta: null,
-    };
+  if (target < 0) {
+    // 正の Lot だけを対象に FIFO で減らす(負の結果を作らない)。
+    let remaining = -target;
+    for (const p of positives) {
+      if (remaining <= 0) break;
+      const take = roundQty(Math.min(p.balance, remaining));
+      if (take <= 0) continue;
+      allocations.push({ lotId: p.lot.id, delta: -take });
+      remaining = roundQty(remaining - take);
+    }
+    return { diff, allocations, newLotDelta: null };
   }
-  return { diff, allocations: [], newLotDelta: diff };
+
+  const latest = positives[positives.length - 1];
+  if (latest) {
+    allocations.push({ lotId: latest.lot.id, delta: target });
+    return { diff, allocations, newLotDelta: null };
+  }
+  return { diff, allocations, newLotDelta: target };
 }
 
 /**

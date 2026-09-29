@@ -57,6 +57,7 @@ describe("requireAuth", () => {
     verifyIdToken.mockResolvedValue({
       uid: "u1",
       email: "stranger@example.com",
+      email_verified: true,
     });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,
@@ -65,7 +66,7 @@ describe("requireAuth", () => {
   });
 
   it("メールが無いトークンなら 403", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "u1" });
+    verifyIdToken.mockResolvedValue({ uid: "u1", email_verified: true });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,
       message: "forbidden",
@@ -73,7 +74,11 @@ describe("requireAuth", () => {
   });
 
   it("許可リスト内のメール(大文字小文字・前後空白を無視)なら通す", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "u1", email: "OK@Example.com" });
+    verifyIdToken.mockResolvedValue({
+      uid: "u1",
+      email: "OK@Example.com",
+      email_verified: true,
+    });
     await expect(requireAuth("Bearer sometoken")).resolves.toEqual({
       uid: "u1",
       email: "ok@example.com",
@@ -81,7 +86,11 @@ describe("requireAuth", () => {
   });
 
   it("配列で渡された Authorization ヘッダも先頭要素で判定する", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "u2", email: "two@example.com" });
+    verifyIdToken.mockResolvedValue({
+      uid: "u2",
+      email: "two@example.com",
+      email_verified: true,
+    });
     await expect(
       requireAuth(["Bearer sometoken", "Bearer other"]),
     ).resolves.toEqual({ uid: "u2", email: "two@example.com" });
@@ -89,6 +98,27 @@ describe("requireAuth", () => {
 
   it("ALLOWED_EMAILS が未設定なら全員 403", async () => {
     delete process.env.ALLOWED_EMAILS;
+    verifyIdToken.mockResolvedValue({
+      uid: "u1",
+      email: "ok@example.com",
+      email_verified: true,
+    });
+    await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
+      statusCode: 403,
+      message: "forbidden",
+    });
+  });
+
+  it("email_verified が false / 未設定なら 403", async () => {
+    verifyIdToken.mockResolvedValue({
+      uid: "u1",
+      email: "ok@example.com",
+      email_verified: false,
+    });
+    await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
+      statusCode: 403,
+      message: "forbidden",
+    });
     verifyIdToken.mockResolvedValue({ uid: "u1", email: "ok@example.com" });
     await expect(requireAuth("Bearer sometoken")).rejects.toMatchObject({
       statusCode: 403,

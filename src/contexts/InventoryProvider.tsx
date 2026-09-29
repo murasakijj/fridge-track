@@ -1,7 +1,18 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { eventFromDoc, foodFromDoc, lotFromDoc } from "../lib/inventoryData";
+import {
+  convertDocs,
+  eventFromDoc,
+  foodFromDoc,
+  lotFromDoc,
+} from "../lib/inventoryData";
 import type {
   FoodItem,
   InventoryEvent,
@@ -26,6 +37,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     events: false,
   });
   const [error, setError] = useState(false);
+  const [pendingWrites, setPendingWrites] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     if (!uid) return;
@@ -35,7 +49,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       onSnapshot(
         collection(db, ...base, "foodItems"),
         (snap) => {
-          setFoods(snap.docs.map(foodFromDoc));
+          setFoods(convertDocs(snap.docs, foodFromDoc));
           setReady((r) => ({ ...r, foods: true }));
         },
         onError,
@@ -43,15 +57,17 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       onSnapshot(
         collection(db, ...base, "inventoryLots"),
         (snap) => {
-          setLots(snap.docs.map(lotFromDoc));
+          setLots(convertDocs(snap.docs, lotFromDoc));
           setReady((r) => ({ ...r, lots: true }));
         },
         onError,
       ),
       onSnapshot(
         collection(db, ...base, "inventoryEvents"),
+        { includeMetadataChanges: true },
         (snap) => {
-          setEvents(snap.docs.map(eventFromDoc));
+          setEvents(convertDocs(snap.docs, eventFromDoc));
+          setPendingWrites(snap.metadata.hasPendingWrites);
           setReady((r) => ({ ...r, events: true }));
         },
         onError,
@@ -59,9 +75,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     ];
     return () => {
       unsubs.forEach((u) => u());
+      // uid 変更・再試行のたびに状態を初期化し、エラーを引きずらない。
       setReady({ foods: false, lots: false, events: false });
+      setError(false);
+      setPendingWrites(false);
     };
-  }, [uid]);
+  }, [uid, attempt]);
 
   const value = useMemo(
     () => ({
@@ -71,8 +90,10 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       uid,
       loading: !(ready.foods && ready.lots && ready.events) && !error,
       error,
+      retry,
+      pendingWrites,
     }),
-    [foods, lots, events, uid, ready, error],
+    [foods, lots, events, uid, ready, error, retry, pendingWrites],
   );
 
   return (

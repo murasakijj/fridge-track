@@ -10,6 +10,7 @@ import {
   toDateInputValue,
 } from "../lib/format";
 import { addStock } from "../lib/inventoryWrites";
+import { isFuturePurchaseDate } from "../lib/purchaseDate";
 import type { FoodView } from "../lib/foodView";
 
 function Form({ view }: { view: FoodView }) {
@@ -23,7 +24,9 @@ function Form({ view }: { view: FoodView }) {
 
   const q = parseQtyInput(qty);
   const d = parseDateInput(date);
-  const valid = q !== null && q > 0 && d !== null;
+  const today = toDateInputValue(new Date());
+  const valid =
+    q !== null && q > 0 && d !== null && !isFuturePurchaseDate(d, new Date());
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,6 +60,7 @@ function Form({ view }: { view: FoodView }) {
           id="purchase-date"
           type="date"
           value={date}
+          max={today}
           onChange={(e) => setDate(e.target.value)}
           required
         />

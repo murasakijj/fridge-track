@@ -76,6 +76,11 @@ export async function requireAuth(
     throw new AuthError(401, "invalid_token");
   }
 
+  // 未検証メールでの成り済ましを防ぐ。
+  if (!decoded.email_verified) {
+    throw new AuthError(403, "forbidden");
+  }
+
   const email = decoded.email?.toLowerCase();
   if (!email || !parseAllowedEmails().includes(email)) {
     throw new AuthError(403, "forbidden");

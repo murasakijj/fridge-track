@@ -50,9 +50,9 @@ function Form({ view }: { view: FoodView }) {
             id="adjust-slider"
             type="range"
             min={0}
-            max={Math.max(100, Math.ceil(view.total / 10) * 10)}
+            max={Math.ceil(Math.max(100, view.total, actual ?? 0) / 10) * 10}
             step={1}
-            value={valid ? Math.min(actual, 1000) : 0}
+            value={valid ? actual : 0}
             onChange={(e) => setValue(e.target.value)}
           />
           <div className="chips" role="group" aria-label="クイック設定">

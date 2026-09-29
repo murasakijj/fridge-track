@@ -7,6 +7,7 @@ import {
   planDiscardFood,
   planDiscardLot,
   planFifo,
+  stockTotal,
 } from "./inventory.js";
 import { ev, lot } from "./testUtils.js";
 
@@ -210,5 +211,76 @@ describe("discard planning", () => {
       { lotId: "A", delta: -30 },
       { lotId: "B", delta: -10 },
     ]);
+  });
+});
+
+describe("negative lot balances", () => {
+  const lots = [lot("A", 0), lot("B", 1)];
+  // A は -5(何らかの理由で負)、B は 100
+  const events = [
+    ev("A", "PURCHASE", 10, 0),
+    ev("A", "CONSUME", -15, 1),
+    ev("B", "PURCHASE", 100, 1),
+  ];
+
+  it("planFifo は負の Lot を飛ばし、負の結果を作らない", () => {
+    const plan = planFifo(lots, events, 30);
+    expect(plan.allocations).toEqual([{ lotId: "B", delta: -30 }]);
+    const after = lotBalances([
+      ...events,
+      ...plan.allocations.map((a) => ev(a.lotId, "CONSUME", a.delta, 2)),
+    ]);
+    expect(after.get("B")).toBe(70);
+    expect(after.get("A")).toBe(-5);
+  });
+
+  it("planAdjust(減らす)はまず負の Lot を 0 に戻す", () => {
+    const plan = planAdjust(lots, events, 60);
+    expect(plan.diff).toBe(-35);
+    expect(plan.allocations).toEqual([
+      { lotId: "A", delta: 5 },
+      { lotId: "B", delta: -40 },
+    ]);
+    const after = lotBalances([
+      ...events,
+      ...plan.allocations.map((a) => ev(a.lotId, "ADJUST", a.delta, 2)),
+    ]);
+    expect(after.get("A")).toBe(0);
+    expect(after.get("B")).toBe(60);
+    expect(
+      stockTotal(lots, [
+        ...events,
+        ...plan.allocations.map((a) => ev(a.lotId, "ADJUST", a.delta, 2)),
+      ]),
+    ).toBe(60);
+  });
+
+  it("planAdjust(0 へ)は全 Lot を 0 にし、負を残さない", () => {
+    const plan = planAdjust(lots, events, 0);
+    const after = lotBalances([
+      ...events,
+      ...plan.allocations.map((a) => ev(a.lotId, "ADJUST", a.delta, 2)),
+    ]);
+    expect(after.get("A")).toBe(0);
+    expect(after.get("B")).toBe(0);
+  });
+
+  it("planAdjust(増やす)でも負の Lot は 0 に戻る", () => {
+    const plan = planAdjust(lots, events, 120);
+    const after = lotBalances([
+      ...events,
+      ...plan.allocations.map((a) => ev(a.lotId, "ADJUST", a.delta, 2)),
+    ]);
+    expect(after.get("A")).toBe(0);
+    expect(after.get("B")).toBe(120);
+  });
+
+  it("stockTotal は存在しない Lot のイベントを無視する", () => {
+    expect(
+      stockTotal(
+        [lot("A", 0)],
+        [ev("A", "PURCHASE", 3, 0), ev("Z", "PURCHASE", 9, 0)],
+      ),
+    ).toBe(3);
   });
 });

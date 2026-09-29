@@ -566,3 +566,12 @@ input[type="range"] {
     grid-template-columns: repeat(4, 1fr);
   }
 }
+
+.sync-hint {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  background: var(--color-badge-ai-bg);
+  color: var(--color-badge-ai-text);
+  font-size: 0.85rem;
+  text-align: center;
+}

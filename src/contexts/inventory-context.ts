@@ -12,6 +12,10 @@ export interface InventoryContextValue {
   /** 3 コレクションすべての最初のスナップショットが届くまで true。 */
   loading: boolean;
   error: boolean;
+  /** エラー後に購読をやり直す。 */
+  retry: () => void;
+  /** サーバー未確認の書込みがある(オフライン等)。 */
+  pendingWrites: boolean;
   uid: string;
 }
 

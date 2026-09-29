@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import AppShell from "../components/AppShell";
+import InventoryError from "../components/InventoryError";
 import EventList from "../components/EventList";
 import { useInventory } from "../contexts/useInventory";
 import { EVENT_TYPES, type EventType } from "../../shared/types.js";
@@ -54,7 +55,7 @@ export default function History() {
         ))}
       </div>
 
-      {error && <p role="alert">データを読み込めませんでした。</p>}
+      {error && <InventoryError />}
       {loading && <p role="status">読み込み中...</p>}
       {!loading && !error && shown.length === 0 && (
         <p className="empty-state">履歴がありません。</p>

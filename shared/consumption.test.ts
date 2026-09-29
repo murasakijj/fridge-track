@@ -38,11 +38,40 @@ describe("computeConsumptionProfile", () => {
     expect(p.consumption_rate).toBeCloseTo(16, 10);
   });
 
-  it("最後のイベント〜now も在庫 > 0 なら含める", () => {
+  it("最後のイベント〜now は stocked_days に含めるが、速度の分母には含めない", () => {
     const events = [ev("A", "PURCHASE", 100, 0), ev("A", "CONSUME", -20, 2)];
     const p = computeConsumptionProfile(events, day(10));
     expect(p.stocked_days).toBeCloseTo(10, 10);
-    expect(p.consumption_rate).toBeCloseTo(2, 10);
+    expect(p.rate_days).toBeCloseTo(2, 10);
+    expect(p.consumption_rate).toBeCloseTo(10, 10);
+  });
+
+  it("now が進んでも速度は変わらない(自己減衰しない)", () => {
+    const events = [ev("A", "PURCHASE", 100, 0), ev("A", "CONSUME", -20, 2)];
+    const a = computeConsumptionProfile(events, day(3));
+    const b = computeConsumptionProfile(events, day(60));
+    expect(b.consumption_rate).toBeCloseTo(a.consumption_rate, 10);
+  });
+
+  it("DISCARD で在庫が 0 になった時点までを分母に含める", () => {
+    const events = [
+      ev("A", "PURCHASE", 100, 0),
+      ev("A", "CONSUME", -50, 5),
+      ev("A", "DISCARD", -50, 10), // ここで在庫 0(観測ではない)
+    ];
+    const p = computeConsumptionProfile(events, day(30));
+    expect(p.rate_days).toBeCloseTo(10, 10);
+    expect(p.used).toBe(50);
+    expect(p.consumption_rate).toBeCloseTo(5, 10);
+  });
+
+  it("過去日付の PURCHASE を後から登録しても時系列で計算する", () => {
+    // 記録順(created_at)は消費が先、購入が後(遡り登録)。
+    const consume = ev("A", "CONSUME", -100, 10, { created_at: day(10) });
+    const purchase = ev("A", "PURCHASE", 100, 0, { created_at: day(11) });
+    const p = computeConsumptionProfile([consume, purchase], day(15));
+    expect(p.stocked_days).toBeCloseTo(10, 10);
+    expect(p.consumption_rate).toBeCloseTo(10, 10);
   });
 
   it("DISCARD は消費に含めないが在庫期間には影響する", () => {
@@ -164,6 +193,36 @@ describe("estimateState", () => {
     expect(estimateState(20, 10, now, now, "個").state).toBe("low");
     expect(estimateState(50, 10, now, now, "個").state).toBe("decreasing");
     expect(estimateState(51, 10, now, now, "個").state).toBe("ok");
+  });
+
+  it("記録済み消費を二重計上しない(100 購入、day1〜5 に 10 ずつ消費 → day5)", () => {
+    const events = [ev("A", "PURCHASE", 100, 0)];
+    for (let i = 1; i <= 5; i++) events.push(ev("A", "CONSUME", -10, i));
+    const p = computeConsumptionProfile(events, day(5));
+    expect(p.consumption_rate).toBeCloseTo(10, 10);
+    const consumed = 50;
+    const r = estimateState(
+      50,
+      p.consumption_rate,
+      day(0),
+      day(5),
+      "個",
+      consumed,
+    );
+    expect(r.state).not.toBe("maybe_gone");
+    expect(r.estimatedRemaining).toBeCloseTo(50, 10);
+    expect(r.estimatedDaysLeft).toBeCloseTo(5, 10);
+  });
+
+  it("consumedSinceCheck が予測減少より多くても残量は total を超えない", () => {
+    const r = estimateState(50, 1, day(0), day(5), "個", 999);
+    expect(r.estimatedRemaining).toBe(50);
+  });
+
+  it("未記録の消費(予測 - 記録済み)だけを差し引く", () => {
+    // rate 10 × 5 日 = 50 のうち 20 は記録済み → 未記録 30 を引く
+    const r = estimateState(80, 10, day(0), day(5), "個", 20);
+    expect(r.estimatedRemaining).toBeCloseTo(50, 10);
   });
 
   it("lastCheckAt が無ければ経過 0 日として扱う", () => {

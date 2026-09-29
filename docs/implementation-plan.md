@@ -64,12 +64,12 @@ recipe-buddy の以下をほぼそのまま移植する:
 - `computeConsumptionProfile(foodEvents, now)`（仕様 §9）:
   - 時系列にイベントを並べ、合計在庫が > 0 の期間の長さ（日）を `stockedDays` として積算（在庫ゼロ期間を除外、仕様 §9.3）。最後のイベント〜`now` も在庫 > 0 なら含める
   - 消費量 `used = Σ(-CONSUME) + Σ(-負のADJUST) - Σ(正のADJUST)`（DISCARD は消費に含めない。未記録消費は負の ADJUST として現れるため含める）。`used < 0` は 0
-  - `consumption_rate = stockedDays >= 1 ? used / stockedDays : 0`（base_unit/日）
+  - `consumption_rate = rateDays >= 1 ? used / rateDays : 0`（base_unit/日）。**`rateDays` は「最後の観測（最後の CONSUME/ADJUST イベント、または在庫が 0 になった時点のうち遅い方）」までに積算した在庫あり日数**。最後の観測〜`now` の開放区間は含めない（未消費の期間を分母に入れて推定速度が自己減衰する循環を避けるため）。`stockedDays`（開放区間を含む全期間）は信頼度の計算にのみ使う
   - `observation_count` = CONSUME + ADJUST イベント数
   - `confidence_score = min(1, observation_count / 20) * min(1, stockedDays / 30)`。ラベル: `≥0.6 高 / ≥0.25 中 / それ未満 低`（学習中モードで機能を止めない、仕様 §9.4）
-- `estimateState(total, rate, lastCheckAt, now, unit)` → 一覧の「推定状態」:
+- `estimateState(total, rate, lastCheckAt, now, unit, consumedSinceCheck = 0)` → 一覧の「推定状態」:
   - `total <= 0` → `在庫なし`
-  - `rate > 0` かつ `推定残量 = total - rate * 経過日数(最後の PURCHASE/ADJUST から)` が `<= 0` → `なくなっている可能性あり`
+  - `rate > 0` かつ `推定残量 = total - max(0, rate * 経過日数(最後の PURCHASE/ADJUST から) - consumedSinceCheck)` が `<= 0`（`consumedSinceCheck` = その時点より後の CONSUME イベントの Σ(-delta)。記録済み消費の二重計上を避ける） → `なくなっている可能性あり`
   - `rate > 0` かつ `推定残日数 = 推定残量 / rate <= 2` → `残り少ない`、`<= 5` → `そろそろ減っている可能性あり`
   - それ以外 → `十分`。rate = 0 のときは記録値のみで判定（`%` 単位で 20 以下なら `残り少ない`）
   - 表示は「記録上の在庫」と「推定」を分けて出す（推定値と信頼度を分離、仕様 §9.4）

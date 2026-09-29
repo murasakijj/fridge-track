@@ -79,3 +79,27 @@ describe("convertQuantity", () => {
     expect(BASE_UNIT_OPTIONS).toContain("%");
   });
 });
+
+describe("convertQuantity: 表記ゆれ", () => {
+  it("ラテン文字の単位は大文字小文字を区別しない", () => {
+    expect(convertQuantity(1, "KG", "g")).toBe(1000);
+    expect(convertQuantity(1, "Kg", "G")).toBe(1000);
+    expect(convertQuantity(2, "G", "g")).toBe(2);
+    expect(convertQuantity(1, "L", "ml")).toBe(1000);
+    expect(convertQuantity(1, "l", "mL")).toBe(1000);
+    expect(convertQuantity(300, "mL", "ml")).toBe(300);
+    expect(convertQuantity(300, "ML", "ml")).toBe(300);
+    expect(convertQuantity(1, "ｋｇ", "g")).toBe(1000); // 全角
+  });
+
+  it("% 管理での N袋 / 小数袋 / 分数袋", () => {
+    expect(convertQuantity(1, "0.5袋", "%")).toBe(50);
+    expect(convertQuantity(2, "0.5袋", "%")).toBe(100);
+    expect(convertQuantity(1, "2袋", "%")).toBe(200);
+    expect(convertQuantity(1, "1/2袋", "%")).toBe(50);
+    expect(convertQuantity(1, "3/4本", "%")).toBe(75);
+    expect(convertQuantity(1, "1.5個", "%")).toBe(150);
+    expect(convertQuantity(1, "0袋", "%")).toBeNull();
+    expect(convertQuantity(1, "1/0袋", "%")).toBeNull();
+  });
+});

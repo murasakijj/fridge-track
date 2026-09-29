@@ -16,8 +16,10 @@ export interface ConsumptionProfile {
   observation_count: number;
   /** 0..1 */
   confidence_score: number;
-  /** 在庫 > 0 だった期間(日)。表示・検証用。 */
+  /** 在庫 > 0 だった期間(日、最後のイベント〜now を含む)。信頼度の計算に使う。 */
   stocked_days: number;
+  /** 消費速度の分母: 最後の観測(最後の CONSUME/ADJUST か在庫 0 到達)までの在庫あり日数。 */
+  rate_days: number;
   /** 期間中の消費量(base_unit)。表示・検証用。 */
   used: number;
 }
@@ -36,6 +38,7 @@ function compareEvents(a: ProfileEvent, b: ProfileEvent): number {
  * 1 食材のイベント列から消費速度・観測数・信頼度を計算する(仕様 §9)。
  * - 在庫ゼロ期間は stockedDays に含めない(§9.3)
  * - used = Σ(-delta) over CONSUME / ADJUST(未記録消費は負の ADJUST、上振れ補正は正の ADJUST で相殺)。DISCARD は含めない。負なら 0
+ * - 速度の分母は最後の観測までの在庫あり日数(最後の観測〜now の未消費期間は含めない)
  * - 履歴が少なくても同一ロジック(§9.4)。信頼度は別に返す
  */
 export function computeConsumptionProfile(
@@ -46,6 +49,7 @@ export function computeConsumptionProfile(
 
   let total = 0;
   let stockedMs = 0;
+  let rateMs = 0;
   let prevTime: number | null = null;
   let used = 0;
   let observations = 0;
@@ -56,12 +60,17 @@ export function computeConsumptionProfile(
       stockedMs += t - prevTime;
     }
     prevTime = Math.max(prevTime ?? t, t);
+    const wasStocked = total > 0;
     total = roundQty(total + e.quantity_delta);
 
-    if (e.event_type === "CONSUME" || e.event_type === "ADJUST") {
+    const isObservation =
+      e.event_type === "CONSUME" || e.event_type === "ADJUST";
+    if (isObservation) {
       used += -e.quantity_delta;
       observations += 1;
     }
+    // 最後の観測(または在庫が 0 になった時点)までの在庫あり日数を分母にする。
+    if (isObservation || (wasStocked && total <= 0)) rateMs = stockedMs;
   }
   if (prevTime !== null && total > 0 && now.getTime() > prevTime) {
     stockedMs += now.getTime() - prevTime;
@@ -69,7 +78,8 @@ export function computeConsumptionProfile(
 
   const stockedDays = stockedMs / DAY_MS;
   used = Math.max(0, roundQty(used));
-  const rate = stockedDays >= 1 ? used / stockedDays : 0;
+  const rateDays = rateMs / DAY_MS;
+  const rate = rateDays >= 1 ? used / rateDays : 0;
   const confidence =
     Math.min(1, observations / 20) * Math.min(1, stockedDays / 30);
 
@@ -78,6 +88,7 @@ export function computeConsumptionProfile(
     observation_count: observations,
     confidence_score: confidence,
     stocked_days: stockedDays,
+    rate_days: rateDays,
     used,
   };
 }
@@ -119,6 +130,8 @@ export function estimateState(
   lastCheckAt: Date | null,
   now: Date,
   unit: string,
+  /** lastCheckAt より後に記録済みの CONSUME 合計(Σ-delta)。二重計上を避けるため差し引く。 */
+  consumedSinceCheck = 0,
 ): EstimatedState {
   const make = (
     state: EstimateStateKey,
@@ -137,7 +150,8 @@ export function estimateState(
     const elapsedDays = lastCheckAt
       ? Math.max(0, (now.getTime() - lastCheckAt.getTime()) / DAY_MS)
       : 0;
-    const remaining = total - rate * elapsedDays;
+    const unrecorded = Math.max(0, rate * elapsedDays - consumedSinceCheck);
+    const remaining = total - unrecorded;
     if (remaining <= 0) return make("maybe_gone", remaining, 0);
     const daysLeft = remaining / rate;
     if (daysLeft <= 2) return make("low", remaining, daysLeft);

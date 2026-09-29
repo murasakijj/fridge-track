@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
+import InventoryError from "../components/InventoryError";
 import { useInventory } from "../contexts/useInventory";
 import { useFoodViews } from "../hooks/useFoodViews";
 import { formatQty } from "../lib/format";
@@ -67,7 +68,7 @@ export default function FoodList() {
         </div>
       </div>
 
-      {error && <p role="alert">データを読み込めませんでした。</p>}
+      {error && <InventoryError />}
       {loading && <p role="status">読み込み中...</p>}
       {!loading && !error && views.length === 0 && (
         <p className="empty-state">

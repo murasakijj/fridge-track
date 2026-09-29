@@ -6,8 +6,11 @@ import {
   type ConsumptionProfile,
   type EstimatedState,
 } from "../../shared/consumption.js";
-import { compareLots, lotBalances } from "../../shared/inventory.js";
-import { roundQty } from "../../shared/qty.js";
+import {
+  compareLots,
+  lotBalances,
+  stockTotal,
+} from "../../shared/inventory.js";
 import type {
   FoodItem,
   InventoryEvent,
@@ -44,7 +47,11 @@ export function buildFoodView(
     .filter((l) => l.food_item_id === food.id)
     .sort(compareLots)
     .map((lot) => ({ lot, balance: balances.get(lot.id) ?? 0 }));
-  const total = roundQty(lots.reduce((s, l) => s + l.balance, 0));
+  // planAdjust と同じ関数・同じ集合(存在する Lot)で合計を出す。
+  const total = stockTotal(
+    lots.map((l) => l.lot),
+    events,
+  );
 
   const profile = computeConsumptionProfile(events, now);
   let lastCheckAt: Date | null = null;
@@ -56,6 +63,14 @@ export function buildFoodView(
       lastCheckAt = e.occurred_at;
     }
   }
+  const checkAt = lastCheckAt;
+  const consumedSinceCheck = events
+    .filter(
+      (e) =>
+        e.event_type === "CONSUME" &&
+        (!checkAt || e.occurred_at.getTime() > checkAt.getTime()),
+    )
+    .reduce((s, e) => s - e.quantity_delta, 0);
   return {
     food,
     total,
@@ -69,6 +84,7 @@ export function buildFoodView(
       lastCheckAt,
       now,
       food.base_unit,
+      consumedSinceCheck,
     ),
   };
 }

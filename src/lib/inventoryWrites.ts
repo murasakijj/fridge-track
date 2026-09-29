@@ -4,6 +4,7 @@ import {
   doc,
   writeBatch,
   type DocumentReference,
+  type WriteBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -13,6 +14,7 @@ import {
   planFifo,
 } from "../../shared/inventory.js";
 import { computeConsumptionProfile } from "../../shared/consumption.js";
+import { isFuturePurchaseDate, purchasedAtFor } from "./purchaseDate";
 import { roundQty } from "../../shared/qty.js";
 import type {
   Allocation,
@@ -49,6 +51,40 @@ interface DraftEvent {
   quantity_delta: number;
   occurred_at: Date;
   source_type?: SourceType;
+}
+
+/** サーバー ack をこの時間待って来なければ、書込みは発行済みとして先へ進む。 */
+const SYNC_WAIT_MS = 1500;
+
+/**
+ * オフライン時は commit() の Promise がサーバー ack まで解決しない。
+ * ローカルには即時反映されるので、一定時間待って未 ack でも画面遷移できるようにする。
+ * 後からルール違反等で拒否された場合はログとアラートで知らせる。
+ */
+async function commitBatch(batch: WriteBatch): Promise<void> {
+  const committed = batch.commit();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"pending">((resolve) => {
+    timer = setTimeout(() => resolve("pending"), SYNC_WAIT_MS);
+  });
+  try {
+    const result = await Promise.race([
+      committed.then(() => "ok" as const),
+      timeout,
+    ]);
+    if (result === "pending") {
+      committed.catch((err: unknown) => {
+        console.error("[inventory] write rejected after timeout", err);
+        if (typeof window !== "undefined") {
+          window.alert(
+            "保存がサーバーに拒否されました。画面を再読み込みして内容を確認してください。",
+          );
+        }
+      });
+    }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function assertPositive(n: number, label: string): number {
@@ -118,7 +154,7 @@ async function commit(
     calculated_at: nowTs,
   });
 
-  await batch.commit();
+  await commitBatch(batch);
 }
 
 function lotRefFor(uid: string, id: string) {
@@ -143,18 +179,8 @@ export async function createFoodItem(
     created_at: now,
     updated_at: now,
   });
-  await batch.commit();
+  await commitBatch(batch);
   return ref.id;
-}
-
-/** 購入日(日付)から purchased_at を決める。今日なら現在時刻、過去日は正午。 */
-export function purchasedAtFor(date: Date, now: Date): Date {
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-  if (sameDay) return now;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
 }
 
 /** 在庫追加: 新規 Lot + PURCHASE(MANUAL)。 */
@@ -166,6 +192,9 @@ export async function addStock(
 ): Promise<void> {
   const q = assertPositive(quantity, "quantity");
   const now = new Date();
+  if (isFuturePurchaseDate(purchaseDate, now)) {
+    throw new Error("future_date");
+  }
   const purchasedAt = purchasedAtFor(purchaseDate, now);
   const ref = doc(userCol(ctx.uid, "inventoryLots"));
   await commit(
@@ -236,7 +265,9 @@ export async function adjustStock(
   const foodLots = ctx.lots.filter((l) => l.food_item_id === food.id);
   const foodEvents = ctx.events.filter((e) => e.food_item_id === food.id);
   const plan = planAdjust(foodLots, foodEvents, actualTotal);
-  if (plan.diff === 0) return { diff: 0 };
+  if (plan.allocations.length === 0 && plan.newLotDelta === null) {
+    return { diff: plan.diff };
+  }
 
   const now = new Date();
   const drafts = allocationsToDrafts(ctx.uid, plan.allocations, "ADJUST", now);

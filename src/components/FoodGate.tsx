@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "./AppShell";
+import InventoryError from "./InventoryError";
 import { useInventory } from "../contexts/useInventory";
 import { useFoodView } from "../hooks/useFoodViews";
 import type { FoodView } from "../lib/foodView";
@@ -20,7 +21,7 @@ export default function FoodGate({
   if (error) {
     return (
       <AppShell>
-        <p role="alert">データを読み込めませんでした。</p>
+        <InventoryError />
       </AppShell>
     );
   }

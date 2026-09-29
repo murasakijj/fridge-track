@@ -18,9 +18,10 @@ export const BASE_UNIT_OPTIONS = [
   "袋",
 ] as const;
 
-/** 全角英数・スラッシュを半角にし、前後空白を除く。 */
+/** 全角英数・スラッシュを半角にし、前後空白を除く。ラテン文字だけの単位は小文字化。 */
 function normalizeUnit(unit: string): string {
-  return unit.normalize("NFKC").trim();
+  const u = unit.normalize("NFKC").trim();
+  return /^[A-Za-z]+$/.test(u) ? u.toLowerCase() : u;
 }
 
 /**
@@ -41,10 +42,10 @@ export function convertQuantity(
 
   if (u === base) return roundQty(quantity);
 
-  if (base === "g" && u.toLowerCase() === "kg") {
+  if (base === "g" && u === "kg") {
     return roundQty(quantity * 1000);
   }
-  if (base === "ml" && (u === "L" || u === "l")) {
+  if (base === "ml" && u === "l") {
     return roundQty(quantity * 1000);
   }
 
@@ -55,12 +56,15 @@ export function convertQuantity(
     const fixed = FRACTION_BAG_PERCENT[u];
     if (fixed !== undefined) return roundQty(quantity * fixed);
 
-    const fraction = /^(\d+)\/(\d+)(袋|本|個)$/.exec(u);
-    if (fraction) {
-      const den = Number(fraction[2]);
-      const per = CONTAINER_UNIT_PERCENT[fraction[3] ?? ""];
+    // N袋 / 0.5袋 / 1/2袋 (袋・本・個は容器単位)
+    const container = /^(\d+(?:\.\d+)?)(?:\/(\d+))?(袋|本|個)$/.exec(u);
+    if (container) {
+      const num = Number(container[1]);
+      const den = container[2] === undefined ? 1 : Number(container[2]);
+      const per = CONTAINER_UNIT_PERCENT[container[3] ?? ""];
       if (den === 0 || per === undefined) return null;
-      return roundQty(quantity * (Number(fraction[1]) / den) * per);
+      const pct = roundQty(quantity * (num / den) * per);
+      return pct > 0 ? pct : null;
     }
 
     const perContainer = CONTAINER_UNIT_PERCENT[u];
