@@ -12,11 +12,13 @@ import {
   eventFromDoc,
   foodFromDoc,
   lotFromDoc,
+  mappingFromDoc,
 } from "../lib/inventoryData";
 import type {
   FoodItem,
   InventoryEvent,
   InventoryLot,
+  ReceiptFoodMapping,
 } from "../../shared/types.js";
 import { InventoryContext } from "./inventory-context";
 import { useAuth } from "./useAuth";
@@ -31,6 +33,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const [foods, setFoods] = useState<FoodItem[]>([]);
   const [lots, setLots] = useState<InventoryLot[]>([]);
   const [events, setEvents] = useState<InventoryEvent[]>([]);
+  const [mappings, setMappings] = useState<ReceiptFoodMapping[]>([]);
   const [ready, setReady] = useState({
     foods: false,
     lots: false,
@@ -72,6 +75,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         },
         onError,
       ),
+      // マッピングは補助情報なので、読み込み完了を待たない(失敗しても他画面は使える)。
+      onSnapshot(
+        collection(db, ...base, "receiptFoodMappings"),
+        (snap) => setMappings(convertDocs(snap.docs, mappingFromDoc)),
+        (err) => console.warn("[inventory] mappings unavailable", err.code),
+      ),
     ];
     return () => {
       unsubs.forEach((u) => u());
@@ -87,13 +96,14 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       foods,
       lots,
       events,
+      mappings,
       uid,
       loading: !(ready.foods && ready.lots && ready.events) && !error,
       error,
       retry,
       pendingWrites,
     }),
-    [foods, lots, events, uid, ready, error, retry, pendingWrites],
+    [foods, lots, events, mappings, uid, ready, error, retry, pendingWrites],
   );
 
   return (

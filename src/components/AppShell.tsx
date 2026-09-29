@@ -38,6 +38,7 @@ export default function AppShell({
         <NavLink to="/" end>
           食材
         </NavLink>
+        <NavLink to="/receipt">レシート</NavLink>
         <NavLink to="/history">履歴</NavLink>
       </nav>
       {pending && (

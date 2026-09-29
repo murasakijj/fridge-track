@@ -6,6 +6,7 @@ import {
   type FoodItem,
   type InventoryEvent,
   type InventoryLot,
+  type ReceiptFoodMapping,
   type SourceType,
 } from "../../shared/types.js";
 
@@ -121,4 +122,25 @@ export function convertDocs<T>(
     if (v !== null) out.push(v);
   }
   return out;
+}
+
+export function mappingFromDoc(d: DocLike): ReceiptFoodMapping | null {
+  const x = d.data();
+  if (!nonEmptyString(x.raw_name)) return warn("mapping", d.id, "raw_name");
+  if (!nonEmptyString(x.food_item_id)) {
+    return warn("mapping", d.id, "food_item_id");
+  }
+  if (!(x.created_at instanceof Timestamp)) {
+    return warn("mapping", d.id, "created_at");
+  }
+  if (!(x.updated_at instanceof Timestamp)) {
+    return warn("mapping", d.id, "updated_at");
+  }
+  return {
+    id: d.id,
+    raw_name: x.raw_name,
+    food_item_id: x.food_item_id,
+    created_at: x.created_at.toDate(),
+    updated_at: x.updated_at.toDate(),
+  };
 }

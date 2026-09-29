@@ -5,6 +5,7 @@ import {
   eventFromDoc,
   foodFromDoc,
   lotFromDoc,
+  mappingFromDoc,
   type DocLike,
 } from "./inventoryData";
 
@@ -132,5 +133,25 @@ describe("convertDocs", () => {
     ];
     const r = convertDocs(docs, eventFromDoc);
     expect(r.map((e) => e.id)).toEqual(["ok"]);
+  });
+});
+
+describe("mappingFromDoc", () => {
+  it("正常変換と不正の除外", () => {
+    const good = {
+      raw_name: "牛乳",
+      food_item_id: "f1",
+      created_at: ts(1),
+      updated_at: ts(2),
+    };
+    expect(mappingFromDoc(docOf("m", good))).toMatchObject({
+      id: "m",
+      raw_name: "牛乳",
+      food_item_id: "f1",
+    });
+    expect(mappingFromDoc(docOf("m", { ...good, raw_name: "" }))).toBeNull();
+    expect(
+      mappingFromDoc(docOf("m", { ...good, updated_at: null })),
+    ).toBeNull();
   });
 });

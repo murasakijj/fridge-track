@@ -575,3 +575,11 @@ input[type="range"] {
   font-size: 0.85rem;
   text-align: center;
 }
+
+.receipt-row-off {
+  opacity: 0.55;
+}
+
+.receipt-row .field {
+  margin-top: 0.5rem;
+}

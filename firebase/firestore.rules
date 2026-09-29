@@ -103,7 +103,12 @@ service cloud.firestore {
       // レシート表記 → 食材の対応: upsert 可。
       match /receiptFoodMappings/{id} {
         allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['raw_name', 'food_item_id', 'created_at', 'updated_at'])
+          && request.resource.data.raw_name is string
+          && request.resource.data.food_item_id is string
+          && request.resource.data.created_at is timestamp
+          && request.resource.data.updated_at is timestamp;
         allow delete: if false;
       }
 

@@ -1,6 +1,7 @@
 import { createContext } from "react";
 import type {
   FoodItem,
+  ReceiptFoodMapping,
   InventoryEvent,
   InventoryLot,
 } from "../../shared/types.js";
@@ -9,6 +10,8 @@ export interface InventoryContextValue {
   foods: FoodItem[];
   lots: InventoryLot[];
   events: InventoryEvent[];
+  /** レシート表記 → 食材の保存済みマッピング。 */
+  mappings: ReceiptFoodMapping[];
   /** 3 コレクションすべての最初のスナップショットが届くまで true。 */
   loading: boolean;
   error: boolean;

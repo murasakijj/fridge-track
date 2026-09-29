@@ -60,3 +60,13 @@ export interface Allocation {
   lotId: string;
   delta: number;
 }
+
+/** レシート表記(正規化済み)→ 食材の対応履歴。 */
+export interface ReceiptFoodMapping {
+  id: string;
+  /** 正規化済みの raw_name(shared/receipt.ts の normalizeRawName)。 */
+  raw_name: string;
+  food_item_id: string;
+  created_at: Date;
+  updated_at: Date;
+}

@@ -61,7 +61,7 @@ const SYNC_WAIT_MS = 1500;
  * ローカルには即時反映されるので、一定時間待って未 ack でも画面遷移できるようにする。
  * 後からルール違反等で拒否された場合はログとアラートで知らせる。
  */
-async function commitBatch(batch: WriteBatch): Promise<void> {
+export async function commitBatch(batch: WriteBatch): Promise<void> {
   const committed = batch.commit();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"pending">((resolve) => {

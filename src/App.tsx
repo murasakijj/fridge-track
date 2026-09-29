@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -9,20 +10,23 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { InventoryProvider } from "./contexts/InventoryProvider";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login";
-import FoodList from "./pages/FoodList";
-import FoodNew from "./pages/FoodNew";
-import FoodDetail from "./pages/FoodDetail";
-import StockAdd from "./pages/StockAdd";
-import StockConsume from "./pages/StockConsume";
-import StockAdjust from "./pages/StockAdjust";
-import StockDiscard from "./pages/StockDiscard";
-import History from "./pages/History";
+const FoodList = lazy(() => import("./pages/FoodList"));
+const FoodNew = lazy(() => import("./pages/FoodNew"));
+const FoodDetail = lazy(() => import("./pages/FoodDetail"));
+const StockAdd = lazy(() => import("./pages/StockAdd"));
+const StockConsume = lazy(() => import("./pages/StockConsume"));
+const StockAdjust = lazy(() => import("./pages/StockAdjust"));
+const StockDiscard = lazy(() => import("./pages/StockDiscard"));
+const History = lazy(() => import("./pages/History"));
+const Receipt = lazy(() => import("./pages/Receipt"));
 
 function ProtectedLayout() {
   return (
     <RequireAuth>
       <InventoryProvider>
-        <Outlet />
+        <Suspense fallback={<p role="status">読み込み中...</p>}>
+          <Outlet />
+        </Suspense>
       </InventoryProvider>
     </RequireAuth>
   );
@@ -42,6 +46,7 @@ function App() {
             <Route path="/foods/:id/consume" element={<StockConsume />} />
             <Route path="/foods/:id/adjust" element={<StockAdjust />} />
             <Route path="/foods/:id/discard" element={<StockDiscard />} />
+            <Route path="/receipt" element={<Receipt />} />
             <Route path="/history" element={<History />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
