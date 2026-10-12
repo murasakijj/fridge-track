@@ -16,6 +16,7 @@ import {
 import { computeConsumptionProfile } from "../../shared/consumption.js";
 import { isFuturePurchaseDate, purchasedAtFor } from "./purchaseDate";
 import { roundQty } from "../../shared/qty.js";
+import { normalizeCategory } from "../../shared/categories.js";
 import type {
   Allocation,
   EventType,
@@ -164,7 +165,7 @@ function lotRefFor(uid: string, id: string) {
 /** 食材を作成する。base_unit は以後変更不可。 */
 export async function createFoodItem(
   uid: string,
-  input: { name: string; base_unit: string },
+  input: { name: string; base_unit: string; category?: string | null },
 ): Promise<string> {
   const name = input.name.trim();
   const unit = input.base_unit.trim();
@@ -176,11 +177,29 @@ export async function createFoodItem(
   batch.set(ref, {
     name,
     base_unit: unit,
+    category: normalizeCategory(input.category),
     created_at: now,
     updated_at: now,
   });
   await commitBatch(batch);
   return ref.id;
+}
+
+/**
+ * 食材のカテゴリを変更する。category と updated_at だけを更新する
+ * (数量には触れない。未知の値は null=未分類に落とす)。
+ */
+export async function updateFoodCategory(
+  uid: string,
+  foodId: string,
+  category: string | null,
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(userCol(uid, "foodItems"), foodId), {
+    category: normalizeCategory(category),
+    updated_at: Timestamp.now(),
+  });
+  await commitBatch(batch);
 }
 
 /** 在庫追加: 新規 Lot + PURCHASE(MANUAL)。 */

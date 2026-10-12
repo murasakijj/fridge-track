@@ -1,3 +1,4 @@
+import { normalizeCategory, type CategoryId } from "../../shared/categories.js";
 import { roundQty } from "../../shared/qty.js";
 import { mappingDocId, normalizeRawName } from "../../shared/receipt.js";
 import { isFuturePurchaseDate, purchasedAtFor } from "./purchaseDate";
@@ -8,7 +9,7 @@ export interface ReceiptRowInput {
   /** 既存食材の id(newFood と排他)。 */
   foodItemId: string | null;
   /** 新規作成する食材。 */
-  newFood: { name: string; base_unit: string } | null;
+  newFood: { name: string; base_unit: string; category: string | null } | null;
   quantity: number | null;
   /** 明細に残す単位(食材の base_unit)。 */
   unit: string;
@@ -21,7 +22,12 @@ export interface ReceiptRowInput {
 export interface ReceiptPlan {
   receiptId: string;
   purchasedAt: Date;
-  newFoods: { id: string; name: string; base_unit: string }[];
+  newFoods: {
+    id: string;
+    name: string;
+    base_unit: string;
+    category: CategoryId | null;
+  }[];
   receiptItems: {
     id: string;
     raw_name: string;
@@ -93,7 +99,12 @@ export function planReceipt(
       if (!id) {
         id = newId();
         newFoodIds.set(k, id);
-        newFoods.push({ id, name, base_unit: unit });
+        newFoods.push({
+          id,
+          name,
+          base_unit: unit,
+          category: normalizeCategory(row.newFood.category),
+        });
       }
       foodId = id;
     }

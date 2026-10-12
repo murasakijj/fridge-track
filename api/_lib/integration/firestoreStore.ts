@@ -5,6 +5,7 @@ import {
   type Transaction,
 } from "firebase-admin/firestore";
 import { getFirebaseApp } from "../auth.js";
+import { normalizeCategory } from "../../../shared/categories.js";
 import {
   EVENT_TYPES,
   SOURCE_TYPES,
@@ -133,21 +134,41 @@ export function runInOwnerTransaction<T>(
   return db.runTransaction((t) => fn(txFor(db, t, uid)));
 }
 
+export interface FoodListItem {
+  id: string;
+  name: string;
+  base_unit: string;
+  /** 既知のカテゴリ ID。未設定・未知は null。 */
+  category: string | null;
+}
+
+/** foodItems ドキュメント → 連携用の要素。name / base_unit が不正なら null。 */
+export function toFoodListItem(
+  id: string,
+  x: DocumentData,
+): FoodListItem | null {
+  if (typeof x.name !== "string" || typeof x.base_unit !== "string") {
+    return null;
+  }
+  return {
+    id,
+    name: x.name,
+    base_unit: x.base_unit,
+    category: normalizeCategory(x.category),
+  };
+}
+
 /** 連携用: 食材一覧。 */
-export async function listFoodItems(
-  uid: string,
-): Promise<{ id: string; name: string; base_unit: string }[]> {
+export async function listFoodItems(uid: string): Promise<FoodListItem[]> {
   const snap = await getDb()
     .collection("users")
     .doc(uid)
     .collection("foodItems")
     .get();
-  const out: { id: string; name: string; base_unit: string }[] = [];
+  const out: FoodListItem[] = [];
   for (const d of snap.docs) {
-    const x = d.data();
-    if (typeof x.name === "string" && typeof x.base_unit === "string") {
-      out.push({ id: d.id, name: x.name, base_unit: x.base_unit });
-    }
+    const item = toFoodListItem(d.id, d.data());
+    if (item) out.push(item);
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, "ja"));
 }

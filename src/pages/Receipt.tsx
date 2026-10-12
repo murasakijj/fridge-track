@@ -15,6 +15,8 @@ import {
   initialQuantity,
   type ReviewRow,
 } from "../../shared/receipt.js";
+import CategorySelect from "../components/CategorySelect";
+import { guessCategory } from "../../shared/categories.js";
 import { BASE_UNIT_OPTIONS } from "../../shared/units.js";
 import { parseDateInput, parseQtyInput, toDateInputValue } from "../lib/format";
 import { isFuturePurchaseDate } from "../lib/purchaseDate";
@@ -28,6 +30,10 @@ const MAX_FOODS_SENT = 500;
 interface Row extends ReviewRow {
   new_name: string;
   new_unit: string;
+  /** 新規食材のカテゴリ。"" は未選択。 */
+  new_category: string;
+  /** 利用者が選んだら、名前の変更で推定し直さない。 */
+  new_category_touched: boolean;
 }
 
 const SAVE_ERRORS: Record<string, string> = {
@@ -85,6 +91,9 @@ export default function Receipt() {
           ...r,
           new_name: r.raw_name,
           new_unit: BASE_UNIT_OPTIONS[0],
+          // AI の推定 → キーワード辞書 → 未選択
+          new_category: r.ai_category ?? guessCategory(r.raw_name) ?? "",
+          new_category_touched: false,
         })),
       );
       if (result.purchased_at) {
@@ -105,6 +114,11 @@ export default function Receipt() {
       prev.map((r) => {
         if (r.key !== key) return r;
         const next = { ...r, ...patch };
+        // 新規食材の名前を直したら、カテゴリを選び直していない限り推定し直す(AI 推定が優先)。
+        if ("new_name" in patch && !next.new_category_touched) {
+          next.new_category =
+            next.ai_category ?? guessCategory(next.new_name) ?? "";
+        }
         // 食材(または新規の単位)が変わったら、数量を触っていない限り AI の値を換算し直す。
         if (
           ("food_item_id" in patch || "new_unit" in patch) &&
@@ -146,7 +160,11 @@ export default function Receipt() {
         rawName: r.raw_name,
         foodItemId: isNew || r.food_item_id === "" ? null : r.food_item_id,
         newFood: isNew
-          ? { name: r.new_name.trim(), base_unit: r.new_unit }
+          ? {
+              name: r.new_name.trim(),
+              base_unit: r.new_unit,
+              category: r.new_category || null,
+            }
           : null,
         quantity: parseQtyInput(r.quantity),
         unit: baseUnitOf(r) ?? r.ai_unit,
@@ -312,6 +330,17 @@ export default function Receipt() {
                               </option>
                             ))}
                           </select>
+                          <label htmlFor={`newcat-${r.key}`}>カテゴリ</label>
+                          <CategorySelect
+                            id={`newcat-${r.key}`}
+                            value={r.new_category}
+                            onChange={(v) =>
+                              update(r.key, {
+                                new_category: v,
+                                new_category_touched: true,
+                              })
+                            }
+                          />
                         </div>
                       )}
                       <div className="field">

@@ -2,6 +2,10 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import FoodGate from "../components/FoodGate";
 import EventList from "../components/EventList";
+import CategorySelect from "../components/CategorySelect";
+import { useInventory } from "../contexts/useInventory";
+import { updateFoodCategory } from "../lib/inventoryWrites";
+import { normalizeCategory } from "../../shared/categories.js";
 import type { EventType } from "../../shared/types.js";
 import { EVENT_TYPES } from "../../shared/types.js";
 import { EVENT_TYPE_LABEL, formatDate, formatQty } from "../lib/format";
@@ -11,6 +15,21 @@ function Detail({ view }: { view: FoodView }) {
   const { food, total, lots, events, profile, confidence, estimate } = view;
   const [filter, setFilter] = useState<EventType | "ALL">("ALL");
   const unit = food.base_unit;
+  const { uid } = useInventory();
+  const [catSaving, setCatSaving] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
+
+  const onCategoryChange = async (value: string) => {
+    setCatSaving(true);
+    setCatError(null);
+    try {
+      await updateFoodCategory(uid, food.id, normalizeCategory(value));
+    } catch {
+      setCatError("カテゴリの保存に失敗しました。もう一度お試しください。");
+    } finally {
+      setCatSaving(false);
+    }
+  };
 
   const activeLots = lots.filter((l) => l.balance > 0);
   const usedLots = lots.filter((l) => !(l.balance > 0));
@@ -58,6 +77,17 @@ function Detail({ view }: { view: FoodView }) {
           </div>
         </dl>
       </section>
+
+      <div className="field category-field">
+        <label htmlFor="food-category">カテゴリ</label>
+        <CategorySelect
+          id="food-category"
+          value={normalizeCategory(food.category) ?? ""}
+          disabled={catSaving}
+          onChange={(v) => void onCategoryChange(v)}
+        />
+        {catError && <p role="alert">{catError}</p>}
+      </div>
 
       <div className="action-grid">
         <Link to={`/foods/${food.id}/add`} className="btn btn-primary">

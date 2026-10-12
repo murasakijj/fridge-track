@@ -79,7 +79,7 @@ describe("planReceipt", () => {
   });
 
   it("新規食材は同名同単位を 1 つにまとめる", () => {
-    const nf = { name: "ネギ", base_unit: "本" };
+    const nf = { name: "ネギ", base_unit: "本", category: "vegetable" };
     const p = planReceipt(
       [
         row({
@@ -102,11 +102,27 @@ describe("planReceipt", () => {
       idGen(),
     );
     expect(p.newFoods).toHaveLength(1);
+    expect(p.newFoods[0]!.category).toBe("vegetable");
     expect(p.events.map((e) => e.food_item_id)).toEqual([
       p.newFoods[0]!.id,
       p.newFoods[0]!.id,
     ]);
     expect(p.lots).toHaveLength(2);
+  });
+
+  it("新規食材の未知カテゴリは null に落とす", () => {
+    const p = planReceipt(
+      [
+        row({
+          foodItemId: null,
+          newFood: { name: "謎", base_unit: "個", category: "bogus" },
+        }),
+      ],
+      today,
+      now,
+      idGen(),
+    );
+    expect(p.newFoods[0]!.category).toBeNull();
   });
 
   it("含めた行に食材・数量が無ければ row_incomplete", () => {
@@ -117,7 +133,10 @@ describe("planReceipt", () => {
     expect(go({ quantity: 0 })).toThrow("row_incomplete");
     expect(go({ quantity: -2 })).toThrow("row_incomplete");
     expect(
-      go({ foodItemId: null, newFood: { name: " ", base_unit: "個" } }),
+      go({
+        foodItemId: null,
+        newFood: { name: " ", base_unit: "個", category: null },
+      }),
     ).toThrow("row_incomplete");
   });
 

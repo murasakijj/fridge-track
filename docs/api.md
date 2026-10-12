@@ -38,13 +38,14 @@ ID トークンの許可判定。`200 { "ok": true }`。クライアントは 40
 {
   "purchased_at": "2026-09-20",
   "items": [
-    { "raw_name": "国産豚カタロース", "food_item_id": "abc", "quantity": 300, "unit": "g" },
-    { "raw_name": "長ネギ", "food_item_id": null, "quantity": 1, "unit": "個" }
+    { "raw_name": "国産豚カタロース", "food_item_id": "abc", "quantity": 300, "unit": "g", "category": "meat_fish" },
+    { "raw_name": "長ネギ", "food_item_id": null, "quantity": 1, "unit": "個", "category": "vegetable" }
   ]
 }
 ```
 
 - `purchased_at` は読み取れたときだけ含む(`YYYY-MM-DD`)
+- `category`: AI の推定カテゴリ ID(`GET /api/food-items` と同じ ID)。既知の ID 以外・欠落は `null`。新規食材として登録するときの初期値にだけ使い、確認画面で変更できる(AI のスキーマでは必須だが null 可)
 - AI 出力は zod で検証済み。不正な明細は捨て、渡していない `food_item_id` は `null` に置き換える。明細は最大 100 件
 
 エラー: `502 rate_limited`(429)、`502 overloaded`(503)、`502 upstream_error`(その他の上流エラー・タイムアウト)、`502 invalid_ai_output`(AI 出力がスキーマに合わない)。429/503 は自動で最大 2 回再試行(全体 50 秒で打ち切り)。`maxDuration` は 60 秒。
@@ -53,7 +54,9 @@ ID トークンの許可判定。`200 { "ok": true }`。クライアントは 40
 
 連携用の食材一覧。ID トークンまたは連携トークン。
 
-`200 { "items": [{ "id": "abc", "name": "豚肩ロース", "base_unit": "g" }] }`(名前順)
+`200 { "items": [{ "id": "abc", "name": "豚肩ロース", "base_unit": "g", "category": "meat_fish" }] }`(名前順)
+
+- `category`: 食材カテゴリ ID。`vegetable | fruit | meat_fish | egg_dairy | soy_processed | staple | seasoning | drink | other` のいずれか、未設定・未知なら `null`(後方互換の追加フィールド。既存の連携は無視してよい)
 
 レシピアプリはこれで材料を `food_item_id` に紐づける。
 

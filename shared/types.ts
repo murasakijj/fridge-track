@@ -21,6 +21,11 @@ export interface FoodItem {
   name: string;
   /** 管理単位。作成後は変更不可。 */
   base_unit: string;
+  /**
+   * 食材カテゴリ ID(shared/categories.ts)。未設定・未知は null 扱いで「未分類」。
+   * 在庫数量とは無関係なメタデータで、後から変更できる。
+   */
+  category?: string | null;
   created_at: Date;
   updated_at: Date;
 }

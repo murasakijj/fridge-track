@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  normalizeCategory,
+  type CategoryId,
+} from "../../../shared/categories.js";
 
 /** 画像(base64 文字列)の上限。Vercel のリクエスト上限(約 4.5MB)に収まる 4MB。 */
 export const MAX_IMAGE_BASE64_CHARS = 4 * 1024 * 1024;
@@ -33,6 +37,8 @@ export interface ParsedReceiptItem {
   food_item_id: string | null;
   quantity: number;
   unit: string;
+  /** 既知のカテゴリ ID。未知・欠落は null。 */
+  category: CategoryId | null;
 }
 
 export interface ParsedReceipt {
@@ -56,8 +62,10 @@ export const RECEIPT_JSON_SCHEMA = {
           food_item_id: { type: ["string", "null"] },
           quantity: { type: "number" },
           unit: { type: "string" },
+          // OpenAI strict モード互換: 必須だが null 可。未知の値は zod 側で null に落とす。
+          category: { type: ["string", "null"] },
         },
-        required: ["raw_name", "food_item_id", "quantity", "unit"],
+        required: ["raw_name", "food_item_id", "quantity", "unit", "category"],
       },
     },
   },
@@ -74,6 +82,8 @@ const aiItemSchema = z.object({
   food_item_id: z.string().nullable().optional(),
   quantity: z.number().finite().positive().max(1_000_000),
   unit: z.string().trim().min(1).max(50),
+  // 未知の ID・不正な型でも明細は捨てず null に落とす。
+  category: z.unknown().optional(),
 });
 
 const MAX_ITEMS = 100;
@@ -114,6 +124,7 @@ export function sanitizeReceipt(
       food_item_id: id && knownFoodItemIds.has(id) ? id : null,
       quantity: r.data.quantity,
       unit: r.data.unit,
+      category: normalizeCategory(r.data.category),
     });
     if (items.length >= MAX_ITEMS) break;
   }

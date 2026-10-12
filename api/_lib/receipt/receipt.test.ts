@@ -82,6 +82,13 @@ describe("RECEIPT_JSON_SCHEMA", () => {
     };
     walk(RECEIPT_JSON_SCHEMA);
     expect(objects.length).toBe(2);
+    const item = RECEIPT_JSON_SCHEMA.properties.items.items as unknown as {
+      properties: Record<string, { type: unknown }>;
+      required: string[];
+    };
+    // category は必須だが null 可(OpenAI strict 互換)
+    expect(item.required).toContain("category");
+    expect(item.properties.category!.type).toEqual(["string", "null"]);
     for (const o of objects) {
       expect(o.additionalProperties).toBe(false);
       // strict では全プロパティが required
@@ -119,10 +126,50 @@ describe("sanitizeReceipt", () => {
           food_item_id: "f1",
           quantity: 300,
           unit: "g",
+          category: null,
         },
-        { raw_name: "ネギ", food_item_id: null, quantity: 1, unit: "個" },
+        {
+          raw_name: "ネギ",
+          food_item_id: null,
+          quantity: 1,
+          unit: "個",
+          category: null,
+        },
       ],
     });
+  });
+
+  it("category: 既知 ID は通し、未知・不正な型・欠落は null(明細は捨てない)", () => {
+    const item = (category: unknown) => ({
+      raw_name: "x",
+      food_item_id: null,
+      quantity: 1,
+      unit: "個",
+      ...(category === undefined ? {} : { category }),
+    });
+    const r = sanitizeReceipt(
+      {
+        items: [
+          item("vegetable"),
+          item("seasoning"),
+          item("not_a_category"),
+          item(""),
+          item(42),
+          item(null),
+          item(undefined),
+        ],
+      },
+      known,
+    );
+    expect(r.items.map((i) => i.category)).toEqual([
+      "vegetable",
+      "seasoning",
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 
   it("存在しない food_item_id は null に落とす", () => {
@@ -202,6 +249,8 @@ describe("parseReceipt", () => {
     expect(arg.jsonSchema).toBeTruthy();
     expect(arg.prompt).toContain('"id":"f1"');
     expect(arg.system).toContain("レシート");
+    expect(arg.system).toContain("category");
+    expect(out.items[0]!.category).toBeNull();
   });
 
   it("スキーマ違反の出力は invalid_ai_output(502)", async () => {

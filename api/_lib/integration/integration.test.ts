@@ -7,6 +7,7 @@ import {
   type ProfileDoc,
   type ResultDoc,
 } from "./recipeConsume.js";
+import { toFoodListItem } from "./firestoreStore.js";
 import { requireOwner, tokensEqual } from "./ownerAuth.js";
 import { AuthError } from "../auth.js";
 import { day, lot, ev } from "../../../shared/testUtils.js";
@@ -411,5 +412,29 @@ describe("tokensEqual", () => {
     expect(tokensEqual("abc", "abc")).toBe(true);
     expect(tokensEqual("abc", "abd")).toBe(false);
     expect(tokensEqual("abc", "abcd")).toBe(false);
+  });
+});
+
+describe("toFoodListItem (GET /api/food-items の要素)", () => {
+  const base = { name: "豚肩ロース", base_unit: "g" };
+  it("category 未設定(既存データ)は null", () => {
+    expect(toFoodListItem("a", base)).toEqual({
+      id: "a",
+      ...base,
+      category: null,
+    });
+  });
+  it("既知の category はそのまま、未知は null", () => {
+    expect(
+      toFoodListItem("a", { ...base, category: "meat_fish" })?.category,
+    ).toBe("meat_fish");
+    expect(
+      toFoodListItem("a", { ...base, category: "bogus" })?.category,
+    ).toBeNull();
+    expect(toFoodListItem("a", { ...base, category: 3 })?.category).toBeNull();
+  });
+  it("name / base_unit が不正なら除外", () => {
+    expect(toFoodListItem("a", { name: 1, base_unit: "g" })).toBeNull();
+    expect(toFoodListItem("a", { name: "x" })).toBeNull();
   });
 });

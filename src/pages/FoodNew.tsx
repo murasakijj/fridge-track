@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { useInventory } from "../contexts/useInventory";
 import { createFoodItem } from "../lib/inventoryWrites";
+import CategorySelect from "../components/CategorySelect";
+import { guessCategory } from "../../shared/categories.js";
 import { BASE_UNIT_OPTIONS } from "../../shared/units.js";
 
 const CUSTOM = "__custom__";
@@ -13,6 +15,9 @@ export default function FoodNew() {
   const [name, setName] = useState("");
   const [unitChoice, setUnitChoice] = useState<string>(BASE_UNIT_OPTIONS[0]);
   const [customUnit, setCustomUnit] = useState("");
+  // 名前から推定した初期値。利用者が選び直したら、以後は推定で上書きしない。
+  const [category, setCategory] = useState("");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +33,11 @@ export default function FoodNew() {
     setSaving(true);
     setError(null);
     try {
-      const id = await createFoodItem(uid, { name: trimmed, base_unit: unit });
+      const id = await createFoodItem(uid, {
+        name: trimmed,
+        base_unit: unit,
+        category: category || null,
+      });
       navigate(`/foods/${id}`, { replace: true });
     } catch {
       setError("登録に失敗しました。もう一度お試しください。");
@@ -44,7 +53,12 @@ export default function FoodNew() {
           <input
             id="food-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (!categoryTouched) {
+                setCategory(guessCategory(e.target.value) ?? "");
+              }
+            }}
             maxLength={100}
             autoFocus
             required
@@ -55,6 +69,18 @@ export default function FoodNew() {
               <Link to={`/foods/${duplicate.id}`}>既存の食材を開く</Link>
             </p>
           )}
+        </div>
+        <div className="field">
+          <label htmlFor="food-category">カテゴリ</label>
+          <CategorySelect
+            id="food-category"
+            value={category}
+            onChange={(v) => {
+              setCategory(v);
+              setCategoryTouched(true);
+            }}
+          />
+          <p className="hint">名前から推定します。後から変更できます。</p>
         </div>
         <div className="field">
           <label htmlFor="food-unit">管理単位</label>

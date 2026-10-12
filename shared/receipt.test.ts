@@ -107,3 +107,26 @@ describe("buildReviewRows", () => {
     expect(rows[0]!.ai_unit).toBe("パック");
   });
 });
+
+describe("buildReviewRows の ai_category", () => {
+  const item = (category?: unknown) => ({
+    raw_name: "x",
+    food_item_id: null,
+    quantity: 1,
+    unit: "個",
+    ...(category === undefined ? {} : { category: category as string | null }),
+  });
+  it("既知の AI カテゴリは引き継ぎ、未知・欠落は null", () => {
+    const rows = buildReviewRows(
+      [item("vegetable"), item("bogus"), item(null), item()],
+      [],
+      [],
+    );
+    expect(rows.map((r) => r.ai_category)).toEqual([
+      "vegetable",
+      null,
+      null,
+      null,
+    ]);
+  });
+});

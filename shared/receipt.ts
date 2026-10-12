@@ -1,5 +1,6 @@
 import { convertQuantity } from "./units.js";
 import { roundQty } from "./qty.js";
+import { normalizeCategory, type CategoryId } from "./categories.js";
 
 /**
  * レシート商品名の正規化(マッピングのキー)。
@@ -56,6 +57,8 @@ export interface AiReceiptItem {
   food_item_id: string | null;
   quantity: number;
   unit: string;
+  /** AI の推定カテゴリ(既知 ID のみ。無ければ null/省略)。 */
+  category?: string | null;
 }
 
 export interface ReviewRow {
@@ -65,6 +68,8 @@ export interface ReviewRow {
   food_item_id: string;
   ai_quantity: number;
   ai_unit: string;
+  /** AI の推定カテゴリ(既知 ID のみ。無ければ null)。新規食材の初期値に使う。 */
+  ai_category: CategoryId | null;
   /** base_unit 換算後の数量(入力欄の文字列)。換算不能なら ""。 */
   quantity: string;
   quantity_touched: boolean;
@@ -107,6 +112,7 @@ export function buildReviewRows(
       food_item_id: candidate,
       ai_quantity: it.quantity,
       ai_unit: it.unit,
+      ai_category: normalizeCategory(it.category),
       quantity: initialQuantity(
         it.quantity,
         it.unit,

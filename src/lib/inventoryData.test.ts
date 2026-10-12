@@ -105,6 +105,36 @@ describe("foodFromDoc / lotFromDoc", () => {
     ).toMatchObject({ id: "l", food_item_id: "f" });
   });
 
+  describe("category", () => {
+    beforeEach(() => vi.mocked(console.warn).mockClear());
+    const base = {
+      name: "牛乳",
+      base_unit: "%",
+      created_at: ts(1),
+      updated_at: ts(2),
+    };
+    it("未設定(既存データ)は null、警告なし", () => {
+      expect(foodFromDoc(docOf("f", base))?.category).toBeNull();
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+    it("null も警告なしで null", () => {
+      expect(
+        foodFromDoc(docOf("f", { ...base, category: null }))?.category,
+      ).toBeNull();
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+    it("既知の ID はそのまま", () => {
+      expect(
+        foodFromDoc(docOf("f", { ...base, category: "egg_dairy" }))?.category,
+      ).toBe("egg_dairy");
+    });
+    it("未知の値は食材を捨てず null + warn", () => {
+      const f = foodFromDoc(docOf("f", { ...base, category: "bogus" }));
+      expect(f).toMatchObject({ id: "f", name: "牛乳", category: null });
+      expect(console.warn).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("不正は null", () => {
     expect(
       foodFromDoc(

@@ -5,6 +5,7 @@ import {
   type ConfidenceLabel,
   type ConsumptionProfile,
   type EstimatedState,
+  type EstimateStateKey,
 } from "../../shared/consumption.js";
 import {
   compareLots,
@@ -87,4 +88,15 @@ export function buildFoodView(
       consumedSinceCheck,
     ),
   };
+}
+
+/** 「残り少ない／そろそろ減っている／なくなっている可能性あり」。 */
+const ATTENTION_STATES: readonly EstimateStateKey[] = [
+  "low",
+  "decreasing",
+  "maybe_gone",
+];
+
+export function needsAttention(view: Pick<FoodView, "estimate">): boolean {
+  return ATTENTION_STATES.includes(view.estimate.state);
 }

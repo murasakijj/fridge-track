@@ -1,4 +1,5 @@
 import { Timestamp, type DocumentData } from "firebase/firestore";
+import { normalizeCategory } from "../../shared/categories.js";
 import {
   EVENT_TYPES,
   SOURCE_TYPES,
@@ -39,10 +40,18 @@ export function foodFromDoc(d: DocLike): FoodItem | null {
   if (!(x.updated_at instanceof Timestamp)) {
     return warn("foodItem", d.id, "updated_at");
   }
+  // category は任意メタデータ。未設定(既存データ)は黙って null、未知の値は警告して null。
+  const category = normalizeCategory(x.category);
+  if (x.category != null && category === null) {
+    console.warn(
+      `[inventory] unknown category on foodItem ${d.id}; treated as uncategorized`,
+    );
+  }
   return {
     id: d.id,
     name: x.name,
     base_unit: x.base_unit,
+    category,
     created_at: x.created_at.toDate(),
     updated_at: x.updated_at.toDate(),
   };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFoodView } from "./foodView";
+import { buildFoodView, needsAttention } from "./foodView";
 import { planAdjust } from "../../shared/inventory.js";
 import { day, ev, lot } from "../../shared/testUtils.js";
 import type { FoodItem } from "../../shared/types.js";
@@ -57,5 +57,21 @@ describe("buildFoodView", () => {
     const v = buildFoodView(food, lots, events, day(1));
     expect(v.total).toBe(10);
     expect(planAdjust(lots, events, 10).diff).toBe(0);
+  });
+});
+
+describe("needsAttention", () => {
+  const st = (state: string) =>
+    ({ estimate: { state } }) as unknown as Parameters<
+      typeof needsAttention
+    >[0];
+  it("low / decreasing / maybe_gone だけ要注意", () => {
+    expect(
+      ["low", "decreasing", "maybe_gone"].map((s) => needsAttention(st(s))),
+    ).toEqual([true, true, true]);
+    expect(["ok", "none"].map((s) => needsAttention(st(s)))).toEqual([
+      false,
+      false,
+    ]);
   });
 });

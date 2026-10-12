@@ -44,6 +44,7 @@ export async function confirmReceipt(
     batch.set(doc(col("foodItems"), f.id), {
       name: f.name,
       base_unit: f.base_unit,
+      category: f.category,
       created_at: nowTs,
       updated_at: nowTs,
     });
