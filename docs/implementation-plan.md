@@ -135,3 +135,43 @@ recipe-buddy の以下をほぼそのまま移植する:
 | `AI_PROVIDER` / `AI_MODEL` | Vercel | 既定 `gemini` / `gemini-3.6-flash` |
 | `GEMINI_API_KEY`（/ `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `AI_BASE_URL`） | Vercel | AI キー。`VITE_` を付けない |
 | `RECIPE_INTEGRATION_TOKEN` / `INVENTORY_OWNER_UID` | Vercel | レシピアプリ連携（任意） |
+
+## 11. 追加要望（2026-10-12）: 食材のカテゴリ分け
+
+ユーザー要望: 一覧が一律に並んでいて探しにくいので、調味料・野菜・肉/魚などのグループに分けて表示したい。
+
+### 決定事項
+
+- `FoodItem` に任意フィールド `category`（文字列 ID）を追加する。**在庫数量とは無関係なメタデータ**なので、イベントソーシング原則（§3）に影響しない
+- カテゴリは固定リスト（`shared/categories.ts` に ID・表示名・表示順を 1 か所で定義）。表示順:
+  | ID | 表示名 |
+  | --- | --- |
+  | `vegetable` | 野菜・きのこ |
+  | `fruit` | 果物 |
+  | `meat_fish` | 肉・魚 |
+  | `egg_dairy` | 卵・乳製品 |
+  | `soy_processed` | 豆腐・加工品 |
+  | `staple` | 主食・乾物・麺 |
+  | `seasoning` | 調味料 |
+  | `drink` | 飲み物 |
+  | `other` | その他 |
+- `category` 未設定（既存データ）または未知の ID は「未分類」グループとして最後に表示する。マイグレーションは不要
+- `base_unit` と違い **`category` は後から変更可能**（食材詳細で変更）
+
+### 画面
+
+- SC-01 食材一覧:
+  - カテゴリごとのセクション見出し（表示名・件数・要注意件数＝「残り少ない／そろそろ減っている／なくなっている可能性あり」の数）で区切る。空のカテゴリは出さない
+  - 見出しタップで折りたたみ。折りたたみ状態は `localStorage` に保存（失敗しても動作する）
+  - 上部にカテゴリ絞り込みチップ（すべて / 各カテゴリ / 未分類。件数 0 のものは出さない）。検索は全カテゴリ横断で、検索中も見出し付きで表示
+  - セクション内の並び順は従来どおり
+- SC-03 食材登録: カテゴリ選択（必須ではないが、名前から推定した初期値を入れる）
+  - 初期値は `shared/categories.ts` の簡易キーワード辞書（例: 「醤油・塩・味噌・みりん・酢・油・ソース・ケチャップ・マヨネーズ・だし」→ seasoning、「牛乳・卵・チーズ・ヨーグルト・バター」→ egg_dairy、「豚・牛・鶏・ひき肉・鮭・さば・まぐろ・えび・いか・ベーコン・ハム・ソーセージ」→ meat_fish、など）。当たらなければ未選択
+- SC-02 食材詳細: カテゴリ表示と変更（セレクトで即保存）
+- SC-07 レシート: インラインで新規 FoodItem を作るとき、カテゴリも選べる。初期値は AI の推定カテゴリ（`/api/receipt-parse` の各 item に任意の `category` を追加し、zod で既知 ID 以外は null に落とす）→ なければキーワード辞書
+
+### API / ルール
+
+- `firebase/firestore.rules` の foodItems: `category` を任意キーとして許可（`category` は既知 ID の文字列または null）。update で `category` と `name` の変更を許可（`base_unit`・`created_at` は従来どおり不変）
+  - **ルール変更後はユーザーが Firebase Console にルールを貼り直す必要がある**（`docs/setup.md` に追記）
+- `GET /api/food-items` の各要素に `category`（null 可）を追加（後方互換の追加のみ）
