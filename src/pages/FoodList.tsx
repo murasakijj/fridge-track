@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import InventoryError from "../components/InventoryError";
@@ -6,6 +6,7 @@ import { useInventory } from "../contexts/useInventory";
 import { useFoodViews } from "../hooks/useFoodViews";
 import { formatQty } from "../lib/format";
 import { needsAttention, type FoodView } from "../lib/foodView";
+import { layoutFoodList } from "../lib/foodListView";
 import { loadCollapsed, saveCollapsed } from "../lib/collapsedGroups";
 import {
   groupFoodsByCategory,
@@ -47,23 +48,22 @@ export default function FoodList() {
       ),
     [visible],
   );
-  // 選んだカテゴリが(検索などで)0 件になったら「すべて」に戻して表示する。
-  const activeFilter =
-    categoryFilter !== "all" && allGroups.some((g) => g.key === categoryFilter)
-      ? categoryFilter
-      : "all";
-  const groups =
-    activeFilter === "all"
-      ? allGroups
-      : allGroups.filter((g) => g.key === activeFilter);
   const searching = query.trim() !== "";
+  const { activeFilter, groups } = useMemo(
+    () => layoutFoodList(allGroups, categoryFilter, searching, collapsed),
+    [allGroups, categoryFilter, searching, collapsed],
+  );
+
+  // 折りたたみ状態の保存は副作用として行う(state 更新関数の中では書かない)。
+  useEffect(() => {
+    saveCollapsed(collapsed);
+  }, [collapsed]);
 
   const toggleGroup = (key: GroupKey) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
-      saveCollapsed(next);
       return next;
     });
 
@@ -141,8 +141,7 @@ export default function FoodList() {
       )}
 
       {groups.map((g) => {
-        // 検索中は該当食材が隠れないよう、折りたたみを一時的に無視する。
-        const open = searching || !collapsed.has(g.key);
+        const open = g.open;
         const listId = `group-${g.key}`;
         return (
           <section key={g.key} className="food-group">
@@ -152,6 +151,7 @@ export default function FoodList() {
                 className="food-group-toggle"
                 aria-expanded={open}
                 aria-controls={listId}
+                disabled={!g.toggleable}
                 onClick={() => toggleGroup(g.key)}
               >
                 <span className="food-group-caret" aria-hidden="true">

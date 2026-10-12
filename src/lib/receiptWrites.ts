@@ -1,5 +1,6 @@
 import { Timestamp, collection, doc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
+import { newFoodDoc } from "./foodDoc";
 import { commitBatch } from "./inventoryWrites";
 import {
   mappingCreatedAt,
@@ -41,13 +42,13 @@ export async function confirmReceipt(
     created_at: nowTs,
   });
   for (const f of plan.newFoods) {
-    batch.set(doc(col("foodItems"), f.id), {
-      name: f.name,
-      base_unit: f.base_unit,
-      category: f.category,
-      created_at: nowTs,
-      updated_at: nowTs,
-    });
+    batch.set(
+      doc(col("foodItems"), f.id),
+      newFoodDoc(
+        { name: f.name, base_unit: f.base_unit, category: f.category },
+        nowTs,
+      ),
+    );
   }
   for (const it of plan.receiptItems) {
     batch.set(doc(col("receiptItems"), it.id), {

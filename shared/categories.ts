@@ -60,6 +60,17 @@ interface GuessRule {
  * 紛らわしい語は、より具体的なカテゴリを先に置いている。
  */
 const GUESS_RULES: readonly GuessRule[] = [
+  // パン類・お茶漬け・かつお節は、後続の乳製品/果物/飲み物/魚の語より先に判定する。
+  {
+    category: "staple",
+    includes: ["お茶漬け", "茶漬け", "ロール", "かつお節", "削り節"],
+    suffix: ["パン"],
+  },
+  // たれ・つゆ類・料理酒は、肉/魚の語(焼肉のたれ)や酒(料理酒)より先に。
+  {
+    category: "seasoning",
+    includes: ["料理酒", "たれ", "タレ", "ドレッシング", "つゆ"],
+  },
   {
     category: "drink",
     includes: [
@@ -76,8 +87,10 @@ const GUESS_RULES: readonly GuessRule[] = [
       "スポーツドリンク",
       "炭酸",
       "お茶",
+      "チューハイ",
+      "ハイボール",
     ],
-    suffix: ["茶", "水"],
+    suffix: ["茶", "水", "酒", "サワー"],
   },
   {
     category: "egg_dairy",
@@ -128,9 +141,10 @@ const GUESS_RULES: readonly GuessRule[] = [
       "マスタード",
       "豆板醤",
       "甜麺醤",
+      "ごま",
+      "胡麻",
     ],
     suffix: ["塩", "酢", "油"],
-    exact: ["酒"],
   },
   {
     category: "soy_processed",
@@ -149,6 +163,8 @@ const GUESS_RULES: readonly GuessRule[] = [
       "漬け物",
       "缶",
       "ツナ",
+      "餃子",
+      "冷凍",
     ],
   },
   {
@@ -190,6 +206,18 @@ const GUESS_RULES: readonly GuessRule[] = [
       "あさり",
       "ホタテ",
       "貝",
+      "いわし",
+      "鰯",
+      "さんま",
+      "秋刀魚",
+      "かつお",
+      "鰹",
+      "しじみ",
+      "明太子",
+      "いくら",
+      "かに",
+      "カニ",
+      "蟹",
     ],
     exact: ["いか", "たこ"],
   },
@@ -273,6 +301,15 @@ const GUESS_RULES: readonly GuessRule[] = [
       "しめじ",
       "まいたけ",
       "エリンギ",
+      "マッシュルーム",
+      "なめこ",
+      "いんげん",
+      "ししとう",
+      "わかめ",
+      "めかぶ",
+      "ひじき",
+      "昆布",
+      "海苔",
       "きのこ",
       "キノコ",
       "にんにく",
@@ -298,6 +335,7 @@ const GUESS_RULES: readonly GuessRule[] = [
       "たまねぎ",
       "タマネギ",
     ],
+    suffix: ["のり"],
   },
   {
     category: "staple",
@@ -322,17 +360,9 @@ const GUESS_RULES: readonly GuessRule[] = [
       "餅",
       "もち",
       "乾燥",
-      "昆布",
-      "わかめ",
-      "ひじき",
-      "のり",
-      "海苔",
-      "かつお節",
-      "削り節",
       "切り干し",
       "高野豆腐",
     ],
-    suffix: ["パン"],
   },
 ];
 

@@ -16,6 +16,7 @@ import {
 import { computeConsumptionProfile } from "../../shared/consumption.js";
 import { isFuturePurchaseDate, purchasedAtFor } from "./purchaseDate";
 import { roundQty } from "../../shared/qty.js";
+import { newFoodDoc } from "./foodDoc";
 import { normalizeCategory } from "../../shared/categories.js";
 import type {
   Allocation,
@@ -174,13 +175,10 @@ export async function createFoodItem(
   const ref = doc(userCol(uid, "foodItems"));
   const now = Timestamp.now();
   const batch = writeBatch(db);
-  batch.set(ref, {
-    name,
-    base_unit: unit,
-    category: normalizeCategory(input.category),
-    created_at: now,
-    updated_at: now,
-  });
+  batch.set(
+    ref,
+    newFoodDoc({ name, base_unit: unit, category: input.category }, now),
+  );
   await commitBatch(batch);
   return ref.id;
 }

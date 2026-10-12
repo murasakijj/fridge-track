@@ -10,7 +10,7 @@
 4. Authentication > 設定 > **承認済みドメイン**: `localhost`(既定)と、デプロイ先のドメイン(`<project>.vercel.app` やカスタムドメイン)を追加
 5. **Firestore Database** を作成(本番モード。リージョンは近い場所)
 6. **ルールを設定**: `firebase/firestore.rules` の内容を Firestore > ルール に貼り、`['you@example.com']` を**自分のメールアドレス**に置き換えて公開
-   - **食材カテゴリ(`foodItems.category`)の追加に伴いルールが変わっています。更新後は、Firestore > ルール に `firebase/firestore.rules` を貼り直して(メールを置き換えて)再度公開してください。** 貼り直すまでは、カテゴリ付きの食材登録・カテゴリ変更が `permission-denied` で失敗します(既存データの閲覧・在庫操作は影響なし)
+   - **食材カテゴリ(`foodItems.category`)の追加に伴いルールが変わっています。更新後は、Firestore > ルール に `firebase/firestore.rules` を貼り直して(メールを置き換えて)再度公開してください。** 貼り直すまでは、**カテゴリを設定・変更する操作**(カテゴリ付きの食材登録、食材詳細でのカテゴリ変更)が `permission-denied` で失敗します。カテゴリ未選択の食材登録、既存データの閲覧、在庫操作は旧ルールのままでも動きます
    - 本人の uid・検証済み Google アカウント以外は全拒否。`inventoryEvents` は追記専用(update/delete 不可)、`foodItems.base_unit` は変更不可
 7. **サービスアカウント**: プロジェクトの設定 > サービスアカウント > 新しい秘密鍵を生成。ダウンロードした JSON を**1 行に整形**して Vercel の `FIREBASE_SERVICE_ACCOUNT` に貼る(例: `jq -c . key.json`)。JSON ファイルはリポジトリに置かない
 8. Firebase Storage は使わない(レシート画像は保存しない)

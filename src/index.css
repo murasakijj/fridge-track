@@ -613,7 +613,11 @@ input[type="range"] {
   cursor: pointer;
 }
 
-.food-group-toggle:active {
+.food-group-toggle:disabled {
+  cursor: default;
+}
+
+.food-group-toggle:active:not(:disabled) {
   background: var(--color-border);
 }
 
