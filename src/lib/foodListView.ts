@@ -70,3 +70,31 @@ export function filterZeroStock<T>(
   const shown = items.filter((i) => !isZeroStock(getTotal(i)));
   return { shown, hiddenZeroCount: items.length - shown.length };
 }
+
+export type EmptyStateKind = "none" | "no-foods" | "all-zero" | "no-match";
+
+export interface ListStatusInput {
+  loading: boolean;
+  error: boolean;
+  /** 検索・非表示前の食材総数。 */
+  totalFoods: number;
+  /** 実際に表示する食材数。 */
+  shownCount: number;
+  hiddenZeroCount: number;
+  showZero: boolean;
+}
+
+/** 空状態メッセージと「非表示中」ノートの出し分け。 */
+export function listStatus(i: ListStatusInput): {
+  empty: EmptyStateKind;
+  showHiddenNote: boolean;
+} {
+  const showHiddenNote = !i.loading && !i.showZero && i.hiddenZeroCount > 0;
+  let empty: EmptyStateKind = "none";
+  if (!i.loading && !i.error) {
+    if (i.totalFoods === 0) empty = "no-foods";
+    else if (i.shownCount === 0)
+      empty = i.hiddenZeroCount > 0 ? "all-zero" : "no-match";
+  }
+  return { empty, showHiddenNote };
+}

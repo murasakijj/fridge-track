@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import InventoryError from "../components/InventoryError";
@@ -6,7 +6,11 @@ import { useInventory } from "../contexts/useInventory";
 import { useFoodViews } from "../hooks/useFoodViews";
 import { formatQty } from "../lib/format";
 import { needsAttention, type FoodView } from "../lib/foodView";
-import { filterZeroStock, layoutFoodList } from "../lib/foodListView";
+import {
+  filterZeroStock,
+  layoutFoodList,
+  listStatus,
+} from "../lib/foodListView";
 import { loadShowZero, saveShowZero } from "../lib/showZeroStock";
 import { loadCollapsed, saveCollapsed } from "../lib/collapsedGroups";
 import {
@@ -24,6 +28,7 @@ export default function FoodList() {
   const [categoryFilter, setCategoryFilter] = useState<GroupKey | "all">("all");
   const [collapsed, setCollapsed] = useState<Set<GroupKey>>(loadCollapsed);
   const [showZero, setShowZero] = useState(loadShowZero);
+  const showZeroRef = useRef<HTMLButtonElement>(null);
 
   const searching = query.trim() !== "";
   const { visible, hiddenZeroCount } = useMemo(() => {
@@ -68,6 +73,15 @@ export default function FoodList() {
   useEffect(() => {
     saveCollapsed(collapsed);
   }, [collapsed]);
+
+  const status = listStatus({
+    loading,
+    error: !!error,
+    totalFoods: views.length,
+    shownCount: visible.length,
+    hiddenZeroCount,
+    showZero,
+  });
 
   useEffect(() => {
     saveShowZero(showZero);
@@ -120,6 +134,7 @@ export default function FoodList() {
         </div>
         <div className="chips" role="group" aria-label="在庫0の食材">
           <button
+            ref={showZeroRef}
             type="button"
             className={`chip${showZero ? " chip-active" : ""}`}
             aria-pressed={showZero}
@@ -153,13 +168,17 @@ export default function FoodList() {
         )}
       </div>
 
-      {!loading && !showZero && hiddenZeroCount > 0 && (
+      {status.showHiddenNote && (
         <p className="muted zero-hidden-note">
           在庫0の食材 {hiddenZeroCount}件を非表示中{" "}
           <button
             type="button"
             className="link-button"
-            onClick={() => setShowZero(true)}
+            onClick={() => {
+              setShowZero(true);
+              // ノートは消えるので、フォーカスをトグルへ移す。
+              showZeroRef.current?.focus();
+            }}
           >
             表示する
           </button>
@@ -167,17 +186,16 @@ export default function FoodList() {
       )}
       {error && <InventoryError />}
       {loading && <p role="status">読み込み中...</p>}
-      {!loading && !error && views.length === 0 && (
+      {status.empty === "no-foods" && (
         <p className="empty-state">
           食材がまだありません。「食材を登録」から追加してください。
         </p>
       )}
-      {!loading && views.length > 0 && visible.length === 0 && (
-        <p className="empty-state">
-          {hiddenZeroCount > 0
-            ? "在庫のある食材はありません。"
-            : "該当する食材がありません。"}
-        </p>
+      {status.empty === "all-zero" && (
+        <p className="empty-state">在庫のある食材はありません。</p>
+      )}
+      {status.empty === "no-match" && (
+        <p className="empty-state">該当する食材がありません。</p>
       )}
 
       {groups.map((g) => {

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { groupFoodsByCategory } from "../../shared/categories.js";
-import { filterZeroStock, isZeroStock, layoutFoodList } from "./foodListView";
+import {
+  filterZeroStock,
+  isZeroStock,
+  layoutFoodList,
+  listStatus,
+} from "./foodListView";
 
 const groups = groupFoodsByCategory(
   [{ c: "vegetable" }, { c: "seasoning" }, { c: null }],
@@ -105,5 +110,45 @@ describe("filterZeroStock", () => {
     expect(allZero.shown).toHaveLength(0);
     expect(allZero.hiddenZeroCount).toBe(3);
     expect(groupFoodsByCategory(allZero.shown, (f) => f.c)).toEqual([]);
+  });
+});
+
+describe("listStatus", () => {
+  const base = {
+    loading: false,
+    error: false,
+    totalFoods: 3,
+    shownCount: 2,
+    hiddenZeroCount: 1,
+    showZero: false,
+  };
+  it("通常表示: 空状態なし、非表示ノートあり", () => {
+    expect(listStatus(base)).toEqual({ empty: "none", showHiddenNote: true });
+  });
+  it("ノートは N=0・表示ON・読み込み中では出ない", () => {
+    expect(listStatus({ ...base, hiddenZeroCount: 0 }).showHiddenNote).toBe(
+      false,
+    );
+    expect(listStatus({ ...base, showZero: true }).showHiddenNote).toBe(false);
+    expect(listStatus({ ...base, loading: true }).showHiddenNote).toBe(false);
+  });
+  it("食材なし / 全て在庫0 / 該当なし", () => {
+    expect(
+      listStatus({ ...base, totalFoods: 0, shownCount: 0, hiddenZeroCount: 0 })
+        .empty,
+    ).toBe("no-foods");
+    expect(listStatus({ ...base, shownCount: 0 }).empty).toBe("all-zero");
+    expect(
+      listStatus({ ...base, shownCount: 0, hiddenZeroCount: 0 }).empty,
+    ).toBe("no-match");
+  });
+  it("エラー中・読み込み中は空状態を出さない", () => {
+    const e = { ...base, totalFoods: 0, shownCount: 0, hiddenZeroCount: 0 };
+    expect(listStatus({ ...e, error: true }).empty).toBe("none");
+    expect(listStatus({ ...e, loading: true }).empty).toBe("none");
+    expect(
+      listStatus({ ...base, shownCount: 0, hiddenZeroCount: 0, error: true })
+        .empty,
+    ).toBe("none");
   });
 });
