@@ -6,7 +6,8 @@ import { useInventory } from "../contexts/useInventory";
 import { useFoodViews } from "../hooks/useFoodViews";
 import { formatQty } from "../lib/format";
 import { needsAttention, type FoodView } from "../lib/foodView";
-import { layoutFoodList } from "../lib/foodListView";
+import { filterZeroStock, layoutFoodList } from "../lib/foodListView";
+import { loadShowZero, saveShowZero } from "../lib/showZeroStock";
 import { loadCollapsed, saveCollapsed } from "../lib/collapsedGroups";
 import {
   groupFoodsByCategory,
@@ -22,13 +23,22 @@ export default function FoodList() {
   const [sort, setSort] = useState<Sort>("stock");
   const [categoryFilter, setCategoryFilter] = useState<GroupKey | "all">("all");
   const [collapsed, setCollapsed] = useState<Set<GroupKey>>(loadCollapsed);
+  const [showZero, setShowZero] = useState(loadShowZero);
 
-  const visible = useMemo(() => {
+  const searching = query.trim() !== "";
+  const { visible, hiddenZeroCount } = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = q
+    const matched = q
       ? views.filter((v) => v.food.name.toLowerCase().includes(q))
       : views;
-    return [...filtered].sort((a, b) => {
+    // 在庫 0 の非表示は検索中は無効(買い足し登録のために探せるように)。
+    const { shown, hiddenZeroCount } = filterZeroStock(
+      matched,
+      (v) => v.total,
+      showZero,
+      q !== "",
+    );
+    const sorted = [...shown].sort((a, b) => {
       if (sort === "stock") {
         const ha = a.total > 0 ? 0 : 1;
         const hb = b.total > 0 ? 0 : 1;
@@ -36,7 +46,8 @@ export default function FoodList() {
       }
       return a.food.name.localeCompare(b.food.name, "ja");
     });
-  }, [views, query, sort]);
+    return { visible: sorted, hiddenZeroCount };
+  }, [views, query, sort, showZero]);
 
   // 検索結果(全カテゴリ横断)をカテゴリ順にグルーピング。チップの件数もこれに基づく。
   const allGroups = useMemo(
@@ -48,7 +59,6 @@ export default function FoodList() {
       ),
     [visible],
   );
-  const searching = query.trim() !== "";
   const { activeFilter, groups } = useMemo(
     () => layoutFoodList(allGroups, categoryFilter, searching, collapsed),
     [allGroups, categoryFilter, searching, collapsed],
@@ -58,6 +68,10 @@ export default function FoodList() {
   useEffect(() => {
     saveCollapsed(collapsed);
   }, [collapsed]);
+
+  useEffect(() => {
+    saveShowZero(showZero);
+  }, [showZero]);
 
   const toggleGroup = (key: GroupKey) =>
     setCollapsed((prev) => {
@@ -104,6 +118,16 @@ export default function FoodList() {
             名前順
           </button>
         </div>
+        <div className="chips" role="group" aria-label="在庫0の食材">
+          <button
+            type="button"
+            className={`chip${showZero ? " chip-active" : ""}`}
+            aria-pressed={showZero}
+            onClick={() => setShowZero((v) => !v)}
+          >
+            在庫0も表示
+          </button>
+        </div>
         {allGroups.length > 0 && (
           <div className="chips" role="group" aria-label="カテゴリで絞り込み">
             <button
@@ -129,6 +153,18 @@ export default function FoodList() {
         )}
       </div>
 
+      {!loading && !showZero && hiddenZeroCount > 0 && (
+        <p className="muted zero-hidden-note">
+          在庫0の食材 {hiddenZeroCount}件を非表示中{" "}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setShowZero(true)}
+          >
+            表示する
+          </button>
+        </p>
+      )}
       {error && <InventoryError />}
       {loading && <p role="status">読み込み中...</p>}
       {!loading && !error && views.length === 0 && (
@@ -137,7 +173,11 @@ export default function FoodList() {
         </p>
       )}
       {!loading && views.length > 0 && visible.length === 0 && (
-        <p className="empty-state">該当する食材がありません。</p>
+        <p className="empty-state">
+          {hiddenZeroCount > 0
+            ? "在庫のある食材はありません。"
+            : "該当する食材がありません。"}
+        </p>
       )}
 
       {groups.map((g) => {

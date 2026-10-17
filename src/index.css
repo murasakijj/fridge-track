@@ -640,3 +640,18 @@ input[type="range"] {
 .category-field {
   margin-bottom: 1rem;
 }
+
+.zero-hidden-note {
+  margin: 0 0 0.75rem;
+}
+
+.link-button {
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border: none;
+  background: none;
+  color: var(--color-primary, inherit);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}

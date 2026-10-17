@@ -1,3 +1,4 @@
+import { roundQty } from "../../shared/qty.js";
 import type { CategoryGroup, GroupKey } from "../../shared/categories.js";
 
 export interface VisibleGroup<T> extends CategoryGroup<T> {
@@ -41,4 +42,31 @@ export function layoutFoodList<T>(
       toggleable: !forced,
     })),
   };
+}
+
+/** 記録上の在庫が 0 以下(roundQty 後)か。推定による「なくなっている可能性」は含めない。 */
+export function isZeroStock(total: number): boolean {
+  return roundQty(total) <= 0;
+}
+
+export interface ZeroStockFilter<T> {
+  /** 実際に表示する食材(元の順序を保つ)。 */
+  shown: T[];
+  /** 在庫 0 のため非表示にした件数。 */
+  hiddenZeroCount: number;
+}
+
+/**
+ * 在庫 0 の食材を隠す純粋関数。
+ * 検索中、または showZero のときは隠さない。
+ */
+export function filterZeroStock<T>(
+  items: readonly T[],
+  getTotal: (item: T) => number,
+  showZero: boolean,
+  searching: boolean,
+): ZeroStockFilter<T> {
+  if (showZero || searching) return { shown: [...items], hiddenZeroCount: 0 };
+  const shown = items.filter((i) => !isZeroStock(getTotal(i)));
+  return { shown, hiddenZeroCount: items.length - shown.length };
 }
