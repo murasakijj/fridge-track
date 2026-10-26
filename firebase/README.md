@@ -19,6 +19,6 @@ Firebase は household-chore-manager・money-lens・recipe-buddy・fridge-track 
 | `users/{uid}/receiptItems/{id}` | レシート明細 |
 | `users/{uid}/receiptFoodMappings/{id}` | レシート品名と食材の対応 |
 | `users/{uid}/consumptionProfiles/{foodItemId}` | 消費傾向プロファイル |
-| `users/{uid}/recipeConsumptions/{id}` | recipe-buddy 連携の消費記録 |
+| `users/{uid}/recipeConsumptions/{id}` | recipe-buddy 連携の消費記録。サーバー(連携 API)のみ書き込み、クライアントは読み取りのみ |
 
 各コレクションの許可・拒否の詳細（特に `inventoryEvents` の追記専用制約と、許可キー・符号条件）は、household-chore-manager の統合ルールの fridge-track セクションが正本。ドキュメントの形を変えるとき（`foodItems.category` の追加のように許可キーが変わるとき）は、先にそちらのルールを更新してデプロイすること。

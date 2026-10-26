@@ -21,7 +21,7 @@ Vercel の環境変数を次のように更新して再デプロイする(`VITE_
 
 - `VITE_FIREBASE_*`(6 個)を共有プロジェクトの値に
 - `FIREBASE_SERVICE_ACCOUNT` を共有プロジェクトのものに
-- **`INVENTORY_OWNER_UID` を共有プロジェクトでの uid に更新**。uid はプロジェクトごとに別なので、旧プロジェクトの値のままだと recipe-buddy 連携(`/api/food-items`, `/api/recipe-consume`)が別人の(空の)データを参照してしまう。新しい uid はデータ移行スクリプトが表示する値、または共有プロジェクトの Authentication > ユーザー の User UID
+- **`INVENTORY_OWNER_UID` を共有プロジェクトでの uid に更新**。uid はプロジェクトごとに別なので、旧プロジェクトの値のままだと recipe-buddy 連携(`/api/food-items`, `/api/recipe-consume`)が存在しない uid 配下(空)を参照してしまう。新しい uid は共有プロジェクトの Firebase コンソール → Authentication → ユーザー の User UID(家事アプリでログイン済みのアカウント。uid は全アプリ共通)
 
 データの移行(旧 `users/{旧uid}` から共有プロジェクトの `users/{新uid}` へのコピー)は household-chore-manager の `scripts/migrate-firebase/` で行う。切り替え中はこのアプリを使わないこと(コピー後に旧プロジェクトへ書いたデータは移らない)。
 
@@ -72,7 +72,7 @@ Vercel の環境変数を次のように更新して再デプロイする(`VITE_
    openssl rand -base64 48 | tr -d '\n=+/' | cut -c1-48
    ```
 
-2. `INVENTORY_OWNER_UID` を調べる: **共有プロジェクト**の Firebase Console > Authentication > ユーザー で、自分のアカウントの **User UID** をコピー(在庫データは `users/{uid}/…` に入る。旧プロジェクトの uid とは別の値。移行スクリプトが表示する新 uid と同じ)
+2. `INVENTORY_OWNER_UID` を調べる: **共有プロジェクト**の Firebase Console > Authentication > ユーザー で、自分のアカウント(家事アプリでログイン済みのもの)の **User UID** をコピー(在庫データは `users/{uid}/…` に入る。uid は全アプリ共通で、旧プロジェクトの uid とは別の値)
 3. 両方を本アプリの Vercel 環境変数に設定し、同じ `RECIPE_INTEGRATION_TOKEN` を recipe-buddy 側のサーバー環境変数にも設定
 4. 呼び出し方は [api.md](./api.md) の recipe-consume を参照
 

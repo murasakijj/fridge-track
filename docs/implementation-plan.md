@@ -23,7 +23,7 @@ recipe-buddy の以下をほぼそのまま移植する:
 2. すべての `/api/*` は `requireAuth` を通す（例外は §6 の連携 API の「連携トークン」認証のみ）
 3. Firestore ルールで `request.auth.token.email in [許可メール]` かつ `uid` 一致を要求（ルールの正本は household-chore-manager の `firebase/firestore.rules`。このリポジトリには置かない。[`firebase/README.md`](../firebase/README.md)）
 
-許可メールは `ALLOWED_EMAILS`（Vercel 環境変数）と Firestore ルール（Console に貼るときに置換）で設定する。リポジトリにはプレースホルダ `you@example.com` のみを置く。
+許可メールは `ALLOWED_EMAILS`（Vercel 環境変数）と Firestore ルールで設定する。ルールの許可メールは、household-chore-manager のデプロイスクリプトが環境変数 `RULES_ALLOWED_EMAILS` でプレースホルダを置換してデプロイする。リポジトリにはプレースホルダ `you@example.com` のみを置く。
 
 ## 3. Firestore データモデル
 
