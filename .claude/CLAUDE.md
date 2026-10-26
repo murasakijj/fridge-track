@@ -18,7 +18,7 @@
 ## 技術スタック（確定）
 
 - React 19 + Vite + TypeScript、react-router-dom、素の CSS（モバイルファースト）
-- Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/…`、ルールは `firebase/firestore.rules`）
+- Firebase Authentication（Google）+ Cloud Firestore（`users/{uid}/…`）。Firebase は household-chore-manager と共有のプロジェクトで、ルールの正本は household-chore-manager の `firebase/`（このリポジトリからデプロイしない。`firebase/README.md` 参照）
 - Vercel（静的配信 + Functions `api/`）。`@vercel/node` は使わない（`api/_lib/types.ts`）
 - 生成 AI は `api/_lib/ai/` の `AiProvider` 抽象（Gemini 既定 / OpenAI / Anthropic、`AI_PROVIDER` で切替）。呼び出し側（`api/_lib/receipt/`）はプロバイダに依存しない
 - API: `auth-check` / `receipt-parse` / `food-items` / `recipe-consume`（仕様は `docs/api.md`、設定は `docs/setup.md`）
@@ -28,7 +28,7 @@
 
 1. `FIREBASE_SERVICE_ACCOUNT` や AI の API キーをフロントに出さない（`VITE_` を付けない）
 2. すべての `/api/*` は `requireAuth`（ID トークン検証 + `ALLOWED_EMAILS`）を通す（連携トークン認証は plan §6 の例外のみ）
-3. Firestore ルールは本人のメール + uid 一致のみ許可。リポジトリには許可メールのプレースホルダ `you@example.com` だけを置く
+3. Firestore ルールは本人のメール + uid 一致のみ許可。ルールの正本は household-chore-manager の `firebase/firestore.rules`（fridge-track セクション。このリポジトリには置かず、デプロイもしない）で、そこには許可メールのプレースホルダ `you@example.com` だけを置く
 4. 外部入力・AI 出力は zod などで検証する。AI/OCR の結果は確認なしに在庫へ反映しない（`/api/receipt-parse` は書き込まない。登録は `/receipt` の確認後）
 5. 連携トークン（`RECIPE_INTEGRATION_TOKEN`、32 文字以上・定数時間比較）で許可するのは `/api/food-items` と `/api/recipe-consume` のみ。AI キー・リクエスト本文・画像をログに出さない
 6. `dangerouslySetInnerHTML` を使わない
