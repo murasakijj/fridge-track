@@ -38,7 +38,7 @@ export interface ItemResult {
   error?: ItemError;
 }
 
-/** Firestore に書く CONSUME イベント。フィールドは firestore.rules の許可キーと一致させる。 */
+/** Firestore に書く CONSUME イベント。フィールドは統合ルール(household-chore-manager の firebase/firestore.rules の fridge-track セクション)の許可キーと一致させる。 */
 export interface EventDoc {
   inventory_lot_id: string;
   food_item_id: string;

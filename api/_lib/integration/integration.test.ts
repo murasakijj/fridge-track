@@ -120,7 +120,7 @@ describe("executeRecipeConsume", () => {
     expect(tx.violatedReadBeforeWrite).toBe(false);
   });
 
-  it("作るイベントの形が firestore.rules の許可キー・符号条件を満たす", async () => {
+  it("作るイベントの形が 統合 Firestore ルールの許可キー・符号条件を満たす", async () => {
     const tx = seeded();
     await executeRecipeConsume(
       tx,
