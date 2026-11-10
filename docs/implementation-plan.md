@@ -21,9 +21,9 @@ recipe-buddy の以下をほぼそのまま移植する:
 三重の防御:
 1. `/api/auth-check` が 403 を返したらクライアントは即 `signOut`（UI 上の締め出し）
 2. すべての `/api/*` は `requireAuth` を通す（例外は §6 の連携 API の「連携トークン」認証のみ）
-3. Firestore ルールで `request.auth.token.email in [許可メール]` かつ `uid` 一致を要求（[`firebase/firestore.rules`](../firebase/firestore.rules)）
+3. Firestore ルールで `request.auth.token.email in [許可メール]` かつ `uid` 一致を要求（ルールの正本は household-chore-manager の `firebase/firestore.rules`。このリポジトリには置かない。[`firebase/README.md`](../firebase/README.md)）
 
-許可メールは `ALLOWED_EMAILS`（Vercel 環境変数）と Firestore ルール（Console に貼るときに置換）で設定する。リポジトリにはプレースホルダ `you@example.com` のみを置く。
+許可メールは `ALLOWED_EMAILS`（Vercel 環境変数）と Firestore ルールで設定する。ルールの許可メールは、household-chore-manager のデプロイスクリプトが環境変数 `RULES_ALLOWED_EMAILS` でプレースホルダを置換してデプロイする。リポジトリにはプレースホルダ `you@example.com` のみを置く。
 
 ## 3. Firestore データモデル
 
@@ -172,8 +172,8 @@ recipe-buddy の以下をほぼそのまま移植する:
 
 ### API / ルール
 
-- `firebase/firestore.rules` の foodItems: `category` を任意キーとして許可（`category` は既知 ID の文字列または null）。update で `category` と `name` の変更を許可（`base_unit`・`created_at` は従来どおり不変）
-  - **ルール変更後はユーザーが Firebase Console にルールを貼り直す必要がある**（`docs/setup.md` に追記）
+- Firestore ルール(現在は household-chore-manager の `firebase/firestore.rules` の fridge-track セクションが正本)の foodItems: `category` を任意キーとして許可（`category` は既知 ID の文字列または null）。update で `category` と `name` の変更を許可（`base_unit`・`created_at` は従来どおり不変）
+  - **ルール変更後はユーザーがルールを再デプロイする必要がある**（当時は Console に貼り直し。現在は household-chore-manager からデプロイ。`docs/setup.md` 参照）
 - `GET /api/food-items` の各要素に `category`（null 可）を追加（後方互換の追加のみ）
 
 ## 12. 追加要望（2026-10-17）: 在庫 0 の食材の表示切替

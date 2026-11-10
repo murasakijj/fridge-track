@@ -1,19 +1,29 @@
 # セットアップ手順
 
-個人利用(許可メール 1 名)を前提にした手動設定の手順。**自分のメールアドレスをリポジトリにコミットしないこと**(ルールファイルは `you@example.com` のプレースホルダのまま、Console 上でだけ置き換える)。
+個人利用(許可メール 1 名)を前提にした手動設定の手順。**自分のメールアドレスをリポジトリにコミットしないこと**(ルールは household-chore-manager 側で `you@example.com` のプレースホルダのまま管理され、デプロイ時にだけ置き換えられる)。
 
 ## 1. Firebase プロジェクト
 
-1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成(Google アナリティクスは不要)
-2. **ウェブアプリを追加**(`</>`)し、表示される設定値を控える → `.env.local`(ローカル)と Vercel の環境変数に `VITE_FIREBASE_*` 6 個として設定(`.env.example` 参照)
-3. **Authentication** > ログイン方法: **Google のみ**を有効化(他のプロバイダは有効にしない)
-4. Authentication > 設定 > **承認済みドメイン**: `localhost`(既定)と、デプロイ先のドメイン(`<project>.vercel.app` やカスタムドメイン)を追加
-5. **Firestore Database** を作成(本番モード。リージョンは近い場所)
-6. **ルールを設定**: `firebase/firestore.rules` の内容を Firestore > ルール に貼り、`['you@example.com']` を**自分のメールアドレス**に置き換えて公開
-   - **食材カテゴリ(`foodItems.category`)の追加に伴いルールが変わっています。更新後は、Firestore > ルール に `firebase/firestore.rules` を貼り直して(メールを置き換えて)再度公開してください。** 貼り直すまでは、**カテゴリを設定・変更する操作**(カテゴリ付きの食材登録、食材詳細でのカテゴリ変更)が `permission-denied` で失敗します。カテゴリ未選択の食材登録、既存データの閲覧、在庫操作は旧ルールのままでも動きます
+このアプリは専用の Firebase プロジェクトを作らず、household-chore-manager と同じ**共有プロジェクト**を使う(無料枠のプロジェクト数上限を避けるため)。Authentication・Firestore・ルール・インデックスは household-chore-manager 側で用意・管理する。旧プロジェクトからの切り替え手順(データ移行を含む)は household-chore-manager の `docs/firebase-consolidation.md` を参照。
+
+1. **`VITE_FIREBASE_*`**: 共有プロジェクトの プロジェクトの設定 > 全般 > マイアプリ にある既存の Web アプリ設定を、`.env.local`(ローカル)と Vercel の環境変数に 6 個として設定(`.env.example` 参照)。このアプリ用に Web アプリを追加登録する必要はない
+2. **Authentication**: 共有プロジェクトの Google ログインを使う(他のプロバイダは有効にしない)。承認済みドメイン(設定 > **承認済みドメイン**)に、`localhost`(既定)とこのアプリのデプロイ先(`<project>.vercel.app` やカスタムドメイン)があることを**共有プロジェクト側**で確認・追加
+3. **Firestore Database**: 共有プロジェクトの既定データベースを使う(新規作成不要)
+4. **ルール・インデックス**: このリポジトリからはデプロイしない。正本は household-chore-manager の `firebase/`(許可メールの置き換えもそちらのデプロイ手順で行う)。[firebase/README.md](../firebase/README.md) にこのアプリが使うコレクションの一覧がある
    - 本人の uid・検証済み Google アカウント以外は全拒否。`inventoryEvents` は追記専用(update/delete 不可)、`foodItems.base_unit` は変更不可
-7. **サービスアカウント**: プロジェクトの設定 > サービスアカウント > 新しい秘密鍵を生成。ダウンロードした JSON を**1 行に整形**して Vercel の `FIREBASE_SERVICE_ACCOUNT` に貼る(例: `jq -c . key.json`)。JSON ファイルはリポジトリに置かない
-8. Firebase Storage は使わない(レシート画像は保存しない)
+   - ドキュメントの形(許可キー)を変える変更をしたときは、household-chore-manager 側のルールを先に更新・デプロイする
+5. **サービスアカウント**: 共有プロジェクトの プロジェクトの設定 > サービスアカウント > 新しい秘密鍵を生成(household-chore-manager で使っているものと同じでもよい)。ダウンロードした JSON を**1 行に整形**して Vercel の `FIREBASE_SERVICE_ACCOUNT` に貼る(例: `jq -c . key.json`)。旧プロジェクトのものは使わない。JSON ファイルはリポジトリに置かない
+6. Firebase Storage は使わない(レシート画像は保存しない)
+
+### 旧プロジェクトから切り替えるとき
+
+Vercel の環境変数を次のように更新して再デプロイする(`VITE_*` はビルド時に埋め込まれるため再デプロイが必須)。
+
+- `VITE_FIREBASE_*`(6 個)を共有プロジェクトの値に
+- `FIREBASE_SERVICE_ACCOUNT` を共有プロジェクトのものに
+- **`INVENTORY_OWNER_UID` を共有プロジェクトでの uid に更新**。uid はプロジェクトごとに別なので、旧プロジェクトの値のままだと recipe-buddy 連携(`/api/food-items`, `/api/recipe-consume`)が存在しない uid 配下(空)を参照してしまう。新しい uid は共有プロジェクトの Firebase コンソール → Authentication → ユーザー の User UID(家事アプリでログイン済みのアカウント。uid は全アプリ共通)
+
+データの移行(旧 `users/{旧uid}` から共有プロジェクトの `users/{新uid}` へのコピー)は household-chore-manager の `scripts/migrate-firebase/` で行う。切り替え中はこのアプリを使わないこと(コピー後に旧プロジェクトへ書いたデータは移らない)。
 
 ## 2. 生成 AI(レシート解析)
 
@@ -42,13 +52,13 @@
 
 | 変数 | 内容 |
 | --- | --- |
-| `VITE_FIREBASE_*`(6 個) | 手順 1-2 の公開設定値 |
-| `FIREBASE_SERVICE_ACCOUNT` | 手順 1-7 の 1 行 JSON |
+| `VITE_FIREBASE_*`(6 個) | 手順 1-1 の公開設定値(共有プロジェクト) |
+| `FIREBASE_SERVICE_ACCOUNT` | 手順 1-5 の 1 行 JSON(共有プロジェクト) |
 | `ALLOWED_EMAILS` | 自分のメールアドレス(カンマ区切りで複数可だが本人のみにする) |
 | `GEMINI_API_KEY`(または他プロバイダのキー)、`AI_PROVIDER`、`AI_MODEL` | 手順 2 |
 | `RECIPE_INTEGRATION_TOKEN`、`INVENTORY_OWNER_UID` | 任意。手順 4 |
 
-3. デプロイ後、承認済みドメイン(手順 1-4)にデプロイ先を追加し忘れていないか確認 → ブラウザでログイン
+3. デプロイ後、承認済みドメイン(手順 1-2)にデプロイ先を追加し忘れていないか確認 → ブラウザでログイン
 
 ローカルで `/api/*` も動かすときは `vercel dev`(環境変数は Vercel から `vercel env pull`。`.env.local` は git 管理外)。`npm run dev` だけではフロントのみで API は動かない。
 
@@ -62,7 +72,7 @@
    openssl rand -base64 48 | tr -d '\n=+/' | cut -c1-48
    ```
 
-2. `INVENTORY_OWNER_UID` を調べる: Firebase Console > Authentication > ユーザー で、自分のアカウントの **User UID** をコピー(在庫データは `users/{uid}/…` に入る)
+2. `INVENTORY_OWNER_UID` を調べる: **共有プロジェクト**の Firebase Console > Authentication > ユーザー で、自分のアカウント(家事アプリでログイン済みのもの)の **User UID** をコピー(在庫データは `users/{uid}/…` に入る。uid は全アプリ共通で、旧プロジェクトの uid とは別の値)
 3. 両方を本アプリの Vercel 環境変数に設定し、同じ `RECIPE_INTEGRATION_TOKEN` を recipe-buddy 側のサーバー環境変数にも設定
 4. 呼び出し方は [api.md](./api.md) の recipe-consume を参照
 

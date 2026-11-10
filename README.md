@@ -21,7 +21,7 @@ React 19 + Vite + TypeScript / Firebase Auth(Google)+ Firestore / Vercel Functio
 shared/   ドメインロジック(FIFO・補正・消費プロファイル・単位変換)とテスト
 api/      Vercel Functions(auth-check, receipt-parse, food-items, recipe-consume)
 src/      フロントエンド
-firebase/ Firestore ルール(許可メールはプレースホルダ)
+firebase/ ルールの正本は household-chore-manager 側(ここからデプロイしない。README 参照)
 ```
 
 ## 開発
